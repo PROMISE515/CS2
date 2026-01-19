@@ -112,10 +112,10 @@ pause`;
                         <h1 className="text-white text-2xl tracking-tighter">CS2 <span className="text-cs-orange">TACTICS</span></h1>
                     </div>
                     <nav className="hidden lg:flex items-center gap-10">
-                        <a className="text-white/60 hover:text-cs-orange text-xs tracking-[0.2em] transition-all" href="#">战术库</a>
+                        <a className="text-white/60 hover:text-cs-orange text-xs tracking-[0.2em] transition-all" href="/tactics">战术库</a>
                         <a className="text-white/60 hover:text-cs-orange text-xs tracking-[0.2em] transition-all" href="/dashboard">决策中心</a>
-                        <a className="text-white/60 hover:text-cs-orange text-xs tracking-[0.2em] transition-all" href="#">排行榜</a>
-                        <a className="text-white/60 hover:text-cs-orange text-xs tracking-[0.2em] transition-all" href="#">开发日志</a>
+                        <a className="text-white/60 hover:text-cs-orange text-xs tracking-[0.2em] transition-all" href="/leaderboard">排行榜</a>
+                        <a className="text-white/60 hover:text-cs-orange text-xs tracking-[0.2em] transition-all" href="/changelog">开发日志</a>
                     </nav>
                     <div className="flex items-center gap-6">
                         <button className="text-white/60 text-xs tracking-widest hover:text-white transition-colors">登录系统</button>

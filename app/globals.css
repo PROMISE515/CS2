@@ -23,8 +23,15 @@
 
 @utility glass-panel {
     background: rgba(255, 255, 255, 0.03);
-    backdrop-filter: blur(20px);
+    backdrop-filter: blur(25px);
     border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+@utility card-hover {
+    &:hover {
+        border-color: rgba(255, 122, 0, 0.4);
+        background: rgba(255, 255, 255, 0.05);
+    }
 }
 
 /* 核心动效：外发光扩散效果 */
@@ -51,6 +58,14 @@
 @utility btn-outline {
     @apply cyber-button border border-cs-orange text-cs-orange font-headline text-lg px-8 py-4 bg-white/5 uppercase tracking-[0.2em];
     @apply hover:bg-cs-orange/10;
+}
+
+@utility filter-btn {
+    @apply px-6 py-2 glass-panel text-xs tracking-widest text-white/60 hover:text-cs-orange hover:border-cs-orange/50 transition-all duration-300 uppercase;
+}
+
+@utility filter-btn-active {
+    @apply border-cs-orange text-cs-orange bg-cs-orange/5;
 }
 
 @utility hud-corner {
@@ -97,6 +112,15 @@
     position: absolute;
     pointer-events: none;
     animation: scanline 6s linear infinite;
+}
+
+/* Timeline Components */
+@utility timeline-dot {
+    @apply absolute left-[-9px] top-8 w-4 h-4 bg-cs-orange rounded-full border-4 border-navy-grey z-10 orange-glow;
+}
+
+@utility timeline-line {
+    @apply absolute left-0 top-0 bottom-0 w-[2px] bg-gradient-to-b from-cs-orange/50 via-cs-orange/20 to-transparent;
 }
 
 /* 战术 HUD 仪表盘专属布局 */

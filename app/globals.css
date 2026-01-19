@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+@theme {
+    --color-navy-grey: #0B0F1A;
+    --color-cs-orange: #FF7A00;
+    --font-headline: "Outfit", "Inter", sans-serif;
+    --font-technical: "Roboto Mono", monospace;
+}
+
+@utility glass-panel {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+@utility orange-glow {
+    box-shadow: 0 0 15px rgba(255, 122, 0, 0.4);
+}
+
+@utility orange-glow-hover {
+    &:hover {
+        box-shadow: 0 0 25px rgba(255, 122, 0, 0.6);
+    }
+}
+
+@utility btn-primary {
+    @apply bg-cs-orange text-white font-headline text-lg px-8 py-4 transition-all duration-300 orange-glow orange-glow-hover active:scale-95;
+}
+
+@utility btn-outline {
+    @apply border border-cs-orange text-cs-orange font-headline text-lg px-8 py-4 transition-all duration-300 hover:bg-cs-orange/10 orange-glow-hover active:scale-95;
+}
+
+@utility hud-progress {
+    @apply h-1 bg-cs-orange orange-glow;
+}
+
+@layer base {
+    body {
+        @apply bg-navy-grey text-slate-300 font-technical font-light;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+        @apply font-headline font-[900] tracking-[-0.05em] uppercase;
+    }
+}
+
+/* Material Symbols scaling */
+.material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}

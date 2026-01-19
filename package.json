@@ -9,24 +9,25 @@
         "lint": "next lint"
     },
     "dependencies": {
+        "@pusher/push-notifications-server": "^1.2.2",
+        "@pusher/push-notifications-web": "^1.0.9",
+        "clsx": "latest",
+        "lucide-react": "latest",
         "next": "latest",
-        "react": "latest",
-        "react-dom": "latest",
         "pusher": "^5.1.2",
         "pusher-js": "^8.0.1",
-        "@pusher/push-notifications-web": "^1.0.9",
-        "@pusher/push-notifications-server": "^1.2.2",
-        "lucide-react": "latest",
-        "clsx": "latest",
+        "react": "latest",
+        "react-dom": "latest",
         "tailwind-merge": "latest"
     },
     "devDependencies": {
+        "@tailwindcss/postcss": "^4.1.18",
+        "@types/node": "latest",
+        "@types/react": "latest",
+        "@types/react-dom": "latest",
         "autoprefixer": "latest",
         "postcss": "latest",
         "tailwindcss": "latest",
-        "typescript": "latest",
-        "@types/node": "latest",
-        "@types/react": "latest",
-        "@types/react-dom": "latest"
+        "typescript": "latest"
     }
 }

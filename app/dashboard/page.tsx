@@ -12,9 +12,17 @@ function DashboardContent() {
     const [state, setState] = useState<any>(null);
 
     useEffect(() => {
+        // Validate environment variables before initializing Pusher
+        if (!process.env.NEXT_PUBLIC_PUSHER_KEY || !process.env.NEXT_PUBLIC_PUSHER_CLUSTER) {
+            console.error('❌ Missing Pusher environment variables!');
+            console.error('Required: NEXT_PUBLIC_PUSHER_KEY, NEXT_PUBLIC_PUSHER_CLUSTER');
+            console.error('Please configure in Vercel and redeploy.');
+            return;
+        }
+
         // 1. 初始化 Pusher 实时更新
-        const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
-            cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
+        const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY, {
+            cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
         });
 
         const channel = pusher.subscribe(`session-${sessionId}`);
@@ -22,14 +30,19 @@ function DashboardContent() {
             setState(data);
         });
 
-        // 2. 初始化 Pusher Beams 浏览器通知
-        const beamsClient = new Beams.Client({
-            instanceId: process.env.NEXT_PUBLIC_PUSHER_BEAMS_INSTANCE_ID!,
-        });
-
-        beamsClient.start()
-            .then(() => beamsClient.addDeviceInterest(`user-${sessionId}`))
-            .catch(console.error);
+        // 2. 初始化 Pusher Beams 浏览器通知（可选）
+        if (process.env.NEXT_PUBLIC_PUSHER_BEAMS_INSTANCE_ID) {
+            try {
+                const beamsClient = new Beams.Client({
+                    instanceId: process.env.NEXT_PUBLIC_PUSHER_BEAMS_INSTANCE_ID,
+                });
+                beamsClient.start()
+                    .then(() => beamsClient.addDeviceInterest(`user-${sessionId}`))
+                    .catch(console.error);
+            } catch (error) {
+                console.warn('Beams initialization failed (optional feature):', error);
+            }
+        }
 
         return () => {
             pusher.unsubscribe(`session-${sessionId}`);

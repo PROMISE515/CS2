@@ -1,7 +1,9 @@
 export default function Home() {
     return (
-        <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-6 text-center">
-            <h1 className="text-4xl font-black mb-4 tracking-tighter">STRATLOG <span className="text-orange-500">CS2</span></h1>
+        <main className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-6 text-center">
+            <h1 className="text-4xl font-black mb-4 tracking-tighter">
+                STRATLOG <span className="text-orange-500">CS2</span>
+            </h1>
             <p className="text-slate-400 mb-8 max-w-md">
                 专业级实时战术辅助平台。合规、安全、高效。
             </p>
@@ -9,7 +11,6 @@ export default function Home() {
             <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800 shadow-2xl mb-8">
                 <p className="text-sm text-slate-500 mb-4 uppercase tracking-widest font-bold">扫码进入控制中心</p>
                 <div className="w-48 h-48 bg-white rounded-2xl p-4 mx-auto mb-4 flex items-center justify-center">
-                    {/* 真实项目中这里可以用 qrcode.react 生成 */}
                     <div className="w-full h-full bg-slate-200 rounded flex items-center justify-center">
                         <p className="text-[8px] text-slate-800 text-center px-4 font-mono font-bold leading-none break-all">
                             https://cs-2-coral.vercel.app/dashboard?s=debug_user_123
@@ -35,7 +36,7 @@ export default function Home() {
                     </p>
                 </div>
             </div>
-            {/* Build Version: 2026.01.19.01 */}
+            {/* Build Version: 2026.01.19.02 */}
         </main>
     );
 }

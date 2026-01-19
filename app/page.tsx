@@ -12,7 +12,7 @@ export default function Home() {
                     {/* 真实项目中这里可以用 qrcode.react 生成 */}
                     <div className="w-full h-full bg-slate-200 rounded flex items-center justify-center">
                         <p className="text-[8px] text-slate-800 text-center px-4 font-mono font-bold leading-none break-all">
-                            https://stratlog-cs2.vercel.app/dashboard?s=debug_user_123
+                            https://cs-2-coral.vercel.app/dashboard?s=debug_user_123
                         </p>
                     </div>
                 </div>

@@ -1,9 +1,0 @@
-{
-    "buildCommand": "cd stratlog_vercel && npm install && npm run build",
-    "outputDirectory": "stratlog_vercel/.next",
-    "installCommand": "cd stratlog_vercel && npm install",
-    "framework": "nextjs",
-    "regions": [
-        "sin1"
-    ]
-}

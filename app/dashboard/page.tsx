@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Pusher from 'pusher-js';
 import * as Beams from '@pusher/push-notifications-web';
 import { Shield, MapPin, TrendingUp, Clock, AlertTriangle } from 'lucide-react';
 
-export default function Dashboard() {
+function DashboardContent() {
     const searchParams = useSearchParams();
     const sessionId = searchParams.get('s') || 'debug_user_123';
     const [state, setState] = useState<any>(null);
@@ -60,8 +60,8 @@ export default function Dashboard() {
                     </p>
                 </div>
                 <div className={`px-4 py-1.5 rounded-full text-xs font-bold border ${state.economy === 'FULL_BUY' ? 'bg-green-500/10 border-green-500/50 text-green-400' :
-                        state.economy === 'ECO' ? 'bg-red-500/10 border-red-500/50 text-red-400' :
-                            'bg-orange-500/10 border-orange-500/50 text-orange-400'
+                    state.economy === 'ECO' ? 'bg-red-500/10 border-red-500/50 text-red-400' :
+                        'bg-orange-500/10 border-orange-500/50 text-orange-400'
                     }`}>
                     {state.economy}
                 </div>
@@ -113,5 +113,17 @@ export default function Dashboard() {
                 <p>© 2026 STRATLOG.CC ALL RIGHTS RESERVED.</p>
             </footer>
         </div>
+    );
+}
+
+export default function Dashboard() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-orange-500"></div>
+            </div>
+        }>
+            <DashboardContent />
+        </Suspense>
     );
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { pusher, getEconomyTier, generateTactic } from '@/lib/stratlog';
+import { pusher, beamsClient, getEconomyTier, generateTactic } from '@/lib/stratlog';
 
 export async function POST(req: Request) {
     try {
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
         await pusher.trigger(`session-${sessionId}`, 'state-update', state);
 
         // 如果是新回合开始 (freezetime)，通过 Pusher Beams 发送手机通知
-        if (state.phase === 'freezetime') {
+        if (state.phase === 'freezetime' && beamsClient) {
             try {
                 await beamsClient.publishToInterests([`user-${sessionId}`], {
                     web: {

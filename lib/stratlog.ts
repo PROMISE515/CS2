@@ -11,10 +11,14 @@ export const pusher = new Pusher({
 });
 
 // 初始化 Pusher Beams (推送到手机通知栏)
-export const beamsClient = new PushNotifications({
-    instanceId: process.env.PUSHER_BEAMS_INSTANCE_ID!,
-    secretKey: process.env.PUSHER_BEAMS_SECRET_KEY!,
-});
+// 只在有环境变量时初始化，避免构建时报错
+export const beamsClient =
+    process.env.PUSHER_BEAMS_INSTANCE_ID && process.env.PUSHER_BEAMS_SECRET_KEY
+        ? new PushNotifications({
+            instanceId: process.env.PUSHER_BEAMS_INSTANCE_ID,
+            secretKey: process.env.PUSHER_BEAMS_SECRET_KEY,
+        })
+        : null;
 
 // 战术生成逻辑 (迁移自 tactic_generator.py)
 export function getEconomyTier(avgMoney: number) {

@@ -14,6 +14,8 @@
         "react-dom": "latest",
         "pusher": "^5.1.2",
         "pusher-js": "^8.0.1",
+        "@pusher/push-notifications-web": "^1.0.9",
+        "@pusher/push-notifications-server": "^1.2.2",
         "lucide-react": "latest",
         "clsx": "latest",
         "tailwind-merge": "latest"

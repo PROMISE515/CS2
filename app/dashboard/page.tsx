@@ -4,7 +4,6 @@ import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Pusher from 'pusher-js';
 import * as Beams from '@pusher/push-notifications-web';
-import { Shield, MapPin, TrendingUp, Clock, AlertTriangle } from 'lucide-react';
 
 function DashboardContent() {
     const searchParams = useSearchParams();
@@ -12,15 +11,11 @@ function DashboardContent() {
     const [state, setState] = useState<any>(null);
 
     useEffect(() => {
-        // Validate environment variables before initializing Pusher
         if (!process.env.NEXT_PUBLIC_PUSHER_KEY || !process.env.NEXT_PUBLIC_PUSHER_CLUSTER) {
             console.error('❌ Missing Pusher environment variables!');
-            console.error('Required: NEXT_PUBLIC_PUSHER_KEY, NEXT_PUBLIC_PUSHER_CLUSTER');
-            console.error('Please configure in Vercel and redeploy.');
             return;
         }
 
-        // 1. 初始化 Pusher 实时更新
         const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY, {
             cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
         });
@@ -30,7 +25,6 @@ function DashboardContent() {
             setState(data);
         });
 
-        // 2. 初始化 Pusher Beams 浏览器通知（可选）
         if (process.env.NEXT_PUBLIC_PUSHER_BEAMS_INSTANCE_ID) {
             try {
                 const beamsClient = new Beams.Client({
@@ -40,7 +34,7 @@ function DashboardContent() {
                     .then(() => beamsClient.addDeviceInterest(`user-${sessionId}`))
                     .catch(console.error);
             } catch (error) {
-                console.warn('Beams initialization failed (optional feature):', error);
+                console.warn('Beams initialization failed:', error);
             }
         }
 
@@ -51,79 +45,156 @@ function DashboardContent() {
 
     if (!state) {
         return (
-            <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-400">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-orange-500 mb-4"></div>
-                <p>正在等待 CS2 数据连接...</p>
-                <p className="text-xs mt-2 opacity-50">Session: {sessionId}</p>
+            <div className="min-h-screen flex flex-col items-center justify-center text-primary/60">
+                <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-primary mb-6 shadow-[0_0_20px_rgba(255,123,0,0.3)]"></div>
+                <div className="hud-corner hud-tl !w-4 !h-4"></div>
+                <div className="hud-corner hud-br !w-4 !h-4"></div>
+                <p className="font-Technical uppercase tracking-[0.3em] text-sm font-bold">Initializing Uplink...</p>
+                <p className="text-[10px] mt-4 opacity-50 font-mono">Session: {sessionId}</p>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-slate-950 text-slate-100 p-4 font-sans">
-            {/* Header */}
-            <header className="flex justify-between items-center mb-6 bg-slate-900/50 p-4 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-md">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-                        <Shield className="text-orange-500" />
-                        STRATLOG <span className="text-xs font-normal opacity-40">v2.0 CLOUD</span>
-                    </h1>
-                    <p className="text-[10px] opacity-50 uppercase tracking-widest mt-1">
-                        Map: {state.map} • Round {state.round}
-                    </p>
+        <div className="flex h-screen flex-col p-4 md:p-6 gap-6 relative z-10 overflow-hidden">
+            {/* Scanline Layer */}
+            <div className="scanline top-0"></div>
+
+            {/* Header / Top Bar */}
+            <header className="flex items-center justify-between backdrop-blur-xl bg-white/5 border border-white/10 px-4 md:px-8 py-4 rounded-xl relative">
+                <div className="hud-corner hud-tl"></div>
+                <div className="hud-corner hud-tr"></div>
+
+                <div className="flex items-center gap-4 md:gap-6">
+                    <div className="flex items-center gap-3">
+                        <span className="material-symbols-outlined text-primary scale-125">radar</span>
+                        <h2 className="text-white text-lg md:text-2xl font-bold tracking-tighter uppercase whitespace-nowrap">Tactical HUD</h2>
+                    </div>
+                    <div className="h-8 w-[1px] bg-white/20 hidden sm:block"></div>
+                    <div className="flex items-center gap-4 md:gap-8">
+                        <div className="flex flex-col">
+                            <span className="text-[10px] text-primary font-bold uppercase tracking-widest leading-none">Map</span>
+                            <span className="text-sm md:text-lg font-medium">{state.map?.toUpperCase() || 'UNKNOWN'}</span>
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[10px] text-primary font-bold uppercase tracking-widest leading-none">Round</span>
+                            <span className="text-sm md:text-lg font-medium">{state.round || '0'} / 24</span>
+                        </div>
+                    </div>
                 </div>
-                <div className={`px-4 py-1.5 rounded-full text-xs font-bold border ${state.economy === 'FULL_BUY' ? 'bg-green-500/10 border-green-500/50 text-green-400' :
-                    state.economy === 'ECO' ? 'bg-red-500/10 border-red-500/50 text-red-400' :
-                        'bg-orange-500/10 border-orange-500/50 text-orange-400'
-                    }`}>
-                    {state.economy}
+
+                <div className="flex items-center gap-2 sm:gap-6">
+                    <div className={`px-4 h-10 flex items-center justify-center rounded-lg text-[10px] font-bold tracking-widest uppercase border ${state.economy === 'FULL_BUY' ? 'bg-green-500/10 border-green-500/40 text-green-400' :
+                            state.economy === 'ECO' ? 'bg-red-500/10 border-red-500/40 text-red-400' :
+                                'bg-primary/10 border-primary/40 text-primary'
+                        }`}>
+                        {state.economy || 'ANALYZING...'}
+                    </div>
                 </div>
             </header>
 
-            {/* Tactical Card */}
-            <main className="space-y-4">
-                <section className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl overflow-hidden relative group">
-                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <TrendingUp size={80} />
-                    </div>
+            <main className="flex flex-1 gap-6 overflow-hidden flex-col md:flex-row">
+                {/* Left Sidebar: Tactics */}
+                <div className="flex flex-col gap-6 md:w-1/3 overflow-y-auto pr-2 custom-scrollbar">
+                    {/* Tactical Card */}
+                    <div className="flex flex-col flex-1 bg-white/5 border border-white/10 rounded-xl overflow-hidden relative">
+                        <div className="hud-corner hud-tr !w-4 !h-4"></div>
+                        <div className="hud-corner hud-bl !w-4 !h-4"></div>
 
-                    <div className="flex items-center gap-2 mb-6">
-                        <div className="w-1 h-6 bg-orange-500 rounded-full" />
-                        <h2 className="text-lg font-bold text-orange-500 uppercase">当前战术指令</h2>
-                    </div>
+                        <div className="p-6 border-b border-white/10 bg-white/5">
+                            <h2 className="text-white tracking-tighter text-xl font-bold uppercase flex items-center gap-3">
+                                <span className="material-symbols-outlined text-primary">strategy</span>
+                                {state.tactic?.title || 'Tactical Plan'}
+                            </h2>
+                        </div>
 
-                    <h3 className="text-2xl font-bold mb-4">{state.tactic.title}</h3>
-                    <p className="text-slate-400 text-sm mb-6 leading-relaxed">
-                        {state.tactic.description}
-                    </p>
+                        <div className="p-6 space-y-4">
+                            <p className="text-white/60 text-xs italic mb-4 leading-relaxed">
+                                {state.tactic?.description}
+                            </p>
 
-                    <div className="space-y-4">
-                        {state.tactic.steps.map((step: string, i: number) => (
-                            <div key={i} className="flex gap-4 items-start bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-                                <div className="text-sky-400 mt-0.5">
-                                    <Clock size={16} />
-                                </div>
-                                <span className="text-slate-200 text-sm font-medium">{step}</span>
+                            <div className="space-y-4">
+                                {state.tactic?.steps?.map((step: string, i: number) => (
+                                    <div key={i} className="grid grid-cols-[30px_1fr] gap-x-4 group">
+                                        <div className="flex flex-col items-center">
+                                            <div className="size-8 rounded bg-primary/20 border border-primary/40 flex items-center justify-center text-primary text-sm font-bold">{i + 1}</div>
+                                            {i < state.tactic.steps.length - 1 && (
+                                                <div className="w-[1px] bg-gradient-to-b from-primary/40 to-white/10 h-8 mt-2"></div>
+                                            )}
+                                        </div>
+                                        <div className="flex flex-col py-1">
+                                            <p className="text-white text-sm font-bold uppercase tracking-tight leading-tight">{step}</p>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
+                        </div>
                     </div>
-                </section>
 
-                {/* Emergency Plan */}
-                <section className="bg-amber-950/20 border border-amber-900/30 rounded-2xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                        <AlertTriangle size={14} className="text-amber-500" />
-                        <h4 className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">应急方案</h4>
+                    {/* Combat Effectiveness (Placeholder for more data) */}
+                    <div className="flex flex-col gap-4 p-6 rounded-xl bg-white/5 border border-white/10">
+                        <div className="flex items-center justify-between">
+                            <p className="text-white text-xs font-bold tracking-widest uppercase opacity-60">Success Probability</p>
+                            <p className="text-primary text-lg font-bold font-mono">85%</p>
+                        </div>
+                        <div className="rounded-full bg-white/5 h-1.5 p-[1px] border border-white/10 overflow-hidden">
+                            <div className="h-full rounded-full bg-gradient-to-r from-primary/50 to-primary" style={{ width: '85%' }}></div>
+                        </div>
                     </div>
-                    <p className="text-xs text-amber-200/70">
-                        如果 3 人进攻点位受阻，立即转向 B 点执行 4-1 分推。
-                    </p>
-                </section>
+                </div>
+
+                {/* Right Content: Map Visualization */}
+                <div className="flex-1 flex flex-col gap-6">
+                    <div className="flex-1 bg-white/5 border border-white/10 rounded-xl relative overflow-hidden flex items-center justify-center min-h-[300px]">
+                        <div className="hud-corner hud-tl"></div>
+                        <div className="hud-corner hud-tr"></div>
+                        <div className="hud-corner hud-bl"></div>
+                        <div className="hud-corner hud-br"></div>
+
+                        {/* Decorative HUD Elements */}
+                        <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #ff7b00 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
+
+                        <div className="relative w-[90%] md:w-[70%] aspect-square flex items-center justify-center border-2 border-white/5 rounded-full overflow-hidden">
+                            <div className="absolute inset-0 border border-primary/20 rounded-full animate-pulse"></div>
+
+                            {/* Tactical Feed overlay */}
+                            <div className="absolute top-6 right-6 z-20">
+                                <div className="flex items-center gap-2 bg-black/60 border border-primary/40 px-3 py-1 rounded backdrop-blur-md">
+                                    <span className="size-2 bg-primary rounded-full animate-pulse"></span>
+                                    <span className="text-[10px] font-mono text-primary uppercase tracking-widest">UPLINK ACTIVE</span>
+                                </div>
+                            </div>
+
+                            <img
+                                src={`https://cs-2-coral.vercel.app/maps/${state.map?.toLowerCase() || 'mirage'}.png`}
+                                alt="Map Preview"
+                                className="w-[80%] h-[80%] object-contain filter brightness-125 invert opacity-20"
+                                onError={(e: any) => {
+                                    e.target.src = 'https://lh3.googleusercontent.com/aida-public/AB6AXuBtrBXppIFGNo1RIbzBberiTyvRciTbl558h6ISWOReSm2O_NZ7Bg-MuxsO3tKFug1aGcSlS-4CtmhwVwfUqpfEKBfp_7f82mt9wJ1w-fiDs3RqKqizdh5CSK53FKykeIACDyyiSZEHL8W3AgBfvlMR256d1A9_c8uRo9eK50nD0OY_P-zAuuF8SFSktlJf4LHL-c5TJM2IWsC-n4rYlbnbIeWzFEraK4Ajnmjtf0p-919SYh1030IYqrP9kLiRm-e98Um1z_b7CWo';
+                                }}
+                            />
+
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <span className="material-symbols-outlined text-[12rem] text-primary/10 select-none">radar</span>
+                            </div>
+                        </div>
+
+                        <div className="absolute bottom-6 left-6 text-white/40 text-[10px] font-mono uppercase tracking-widest">
+                            System: Online <br /> Latency: 14ms
+                        </div>
+                    </div>
+                </div>
             </main>
 
-            <footer className="mt-8 text-center opacity-30 text-[10px] space-y-1">
-                <p>CONNECTED TO {sessionId}</p>
-                <p>© 2026 STRATLOG.CC ALL RIGHTS RESERVED.</p>
+            {/* Footer / Status Bar */}
+            <footer className="flex items-center justify-between px-2 text-[8px] md:text-[10px] font-mono text-white/30 uppercase tracking-[0.2em]">
+                <div className="flex gap-4 md:gap-6">
+                    <span className="text-primary italic">Connected to {sessionId}</span>
+                </div>
+                <div className="flex gap-6 hidden sm:flex">
+                    <span>Encryption: AES-256</span>
+                    <span className="text-primary/60 tracking-normal">BUILD: 2026.01.19.HUD.v1</span>
+                </div>
             </footer>
         </div>
     );
@@ -132,8 +203,8 @@ function DashboardContent() {
 export default function Dashboard() {
     return (
         <Suspense fallback={
-            <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-orange-500"></div>
+            <div className="min-h-screen bg-navy-grey flex items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-primary"></div>
             </div>
         }>
             <DashboardContent />

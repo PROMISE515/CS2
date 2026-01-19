@@ -1,10 +1,23 @@
 @import "tailwindcss";
 
 @theme {
-    --color-navy-grey: #0B0F1A;
+    --color-primary: #ff7b00;
     --color-cs-orange: #FF7A00;
+    --color-navy-grey: #0B0F1A;
+    --color-background-dark: #0B0F1A;
+    --font-display: "Space Grotesk", sans-serif;
     --font-headline: "Outfit", "Inter", sans-serif;
     --font-technical: "Roboto Mono", monospace;
+
+    @keyframes scanline {
+        from {
+            transform: translateY(0);
+        }
+
+        to {
+            transform: translateY(100vh);
+        }
+    }
 }
 
 @utility glass-panel {
@@ -23,28 +36,59 @@
     }
 }
 
-@utility btn-primary {
-    @apply bg-cs-orange text-white font-headline text-lg px-8 py-4 transition-all duration-300 orange-glow orange-glow-hover active:scale-95;
+@utility hud-corner {
+    position: absolute;
+    width: 15px;
+    height: 15px;
+    border-color: #ff7b00;
 }
 
-@utility btn-outline {
-    @apply border border-cs-orange text-cs-orange font-headline text-lg px-8 py-4 transition-all duration-300 hover:bg-cs-orange/10 orange-glow-hover active:scale-95;
+@utility hud-tl {
+    top: 0;
+    left: 0;
+    border-top: 2px solid;
+    border-left: 2px solid;
 }
 
-@utility hud-progress {
-    @apply h-1 bg-cs-orange orange-glow;
+@utility hud-tr {
+    top: 0;
+    right: 0;
+    border-top: 2px solid;
+    border-right: 2px solid;
+}
+
+@utility hud-bl {
+    bottom: 0;
+    left: 0;
+    border-bottom: 2px solid;
+    border-left: 2px solid;
+}
+
+@utility hud-br {
+    bottom: 0;
+    right: 0;
+    border-bottom: 2px solid;
+    border-right: 2px solid;
+}
+
+@utility scanline {
+    width: 100%;
+    height: 100px;
+    z-index: 10;
+    background: linear-gradient(0deg, rgba(0, 0, 0, 0) 0%, rgba(255, 122, 0, 0.02) 50%, rgba(0, 0, 0, 0) 100%);
+    opacity: 0.1;
+    position: absolute;
+    pointer-events: none;
+    animation: scanline 8s linear infinite;
 }
 
 @layer base {
     body {
-        @apply bg-navy-grey text-slate-300 font-technical font-light;
-    }
-
-    h1,
-    h2,
-    h3,
-    h4 {
-        @apply font-headline font-[900] tracking-[-0.05em] uppercase;
+        @apply bg-background-dark text-white font-display min-h-screen overflow-hidden selection:bg-primary/30;
+        background-image:
+            linear-gradient(rgba(255, 122, 0, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 122, 0, 0.03) 1px, transparent 1px);
+        background-size: 40px 40px;
     }
 }
 

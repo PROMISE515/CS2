@@ -251,7 +251,7 @@ pause`;
                                 <p className="text-slate-400 text-lg mb-14 max-w-xl mx-auto">部署轻量级配置助手，将您的本地游戏数据与 CS2 Tactics 云端决策引擎无缝对接。</p>
                                 <button onClick={downloadConnector} className="btn-primary flex items-center gap-3 mx-auto mb-20 px-12 py-6 text-xl">
                                     <span className="material-symbols-outlined">bolt</span>
-                                    📥 立即下载一键连接器 (Windows)
+                                    立即下载一键连接器 (Windows)
                                 </button>
                                 <div className="text-left border-t border-white/10 pt-16">
                                     <h3 className="text-white text-xl mb-12 flex items-center gap-4">

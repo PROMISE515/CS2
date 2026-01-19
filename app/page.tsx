@@ -1,8 +1,43 @@
+'use client';
 import React from 'react';
 
 export default function Home() {
     const sessionId = "debug_user_123";
     const dashboardUrl = `https://cs-2-coral.vercel.app/dashboard?s=${sessionId}`;
+
+    const downloadConfig = () => {
+        const cfgContent = `"StratLog GSI v2.0"
+{
+    "uri"           "https://cs-2-coral.vercel.app/api/gsi"
+    "timeout"       "5.0"
+    "buffer"        "0.1"
+    "throttle"      "0.5"
+    "heartbeat"     "30.0"
+    "data"
+    {
+        "map"                   "1"
+        "round"                 "1"
+        "player_id"             "1"
+        "player_state"          "1"
+        "player_weapons"        "1"
+        "player_match_stats"    "1"
+        "phase_countdowns"      "1"
+    }
+    "auth"
+    {
+        "sessionId" "${sessionId}"
+    }
+}`;
+        const blob = new Blob([cfgContent], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'gamestate_integration_stratlog.cfg';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
 
     return (
         <div className="relative flex min-h-screen flex-col overflow-x-hidden">
@@ -54,8 +89,11 @@ export default function Home() {
                             为现代 CS2 职业选手打造的高保真战术同步系统。利用实时 GSI 数据优化每一次转点决策与道具投掷，掌控全局经济态势。
                         </p>
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-                            <a href={dashboardUrl} className="btn-primary w-full sm:w-auto tracking-[0.2em] text-center">立即启动系统</a>
-                            <button className="btn-outline w-full sm:w-auto tracking-[0.2em] !bg-white/5 !border-white/10 !text-white hover:!bg-white/10">探索数据地图</button>
+                            <button onClick={downloadConfig} className="btn-primary w-full sm:w-auto tracking-[0.2em] text-center flex items-center justify-center gap-2">
+                                <span className="material-symbols-outlined">download</span>
+                                下载连接器
+                            </button>
+                            <a href={dashboardUrl} className="btn-outline w-full sm:w-auto tracking-[0.2em] !bg-white/5 !border-white/10 !text-white hover:!bg-white/10 text-center">进入控制中心</a>
                         </div>
                     </div>
                 </section>
@@ -147,9 +185,9 @@ export default function Home() {
                             <div className="relative z-10">
                                 <h2 className="text-white text-5xl md:text-7xl mb-8 italic">下载中心</h2>
                                 <p className="text-slate-400 text-lg mb-14 max-w-xl mx-auto">部署轻量级配置助手，将您的本地游戏数据与 CS2 Tactics 云端决策引擎无缝对接。</p>
-                                <button className="btn-primary flex items-center gap-3 mx-auto mb-20 px-12 py-6 text-xl">
+                                <button onClick={downloadConfig} className="btn-primary flex items-center gap-3 mx-auto mb-20 px-12 py-6 text-xl">
                                     <span className="material-symbols-outlined">download</span>
-                                    📥 下载一键配置助手
+                                    📥 立即下载 GSI 配置文件
                                 </button>
                                 <div className="text-left border-t border-white/10 pt-16">
                                     <h3 className="text-white text-xl mb-12 flex items-center gap-4">

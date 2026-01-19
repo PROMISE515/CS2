@@ -1,0 +1,30 @@
+{
+    "name": "stratlog-cloud",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "dev": "next dev",
+        "build": "next build",
+        "start": "next start",
+        "lint": "next lint"
+    },
+    "dependencies": {
+        "next": "latest",
+        "react": "latest",
+        "react-dom": "latest",
+        "pusher": "^5.1.2",
+        "pusher-js": "^8.0.1",
+        "lucide-react": "latest",
+        "clsx": "latest",
+        "tailwind-merge": "latest"
+    },
+    "devDependencies": {
+        "autoprefixer": "latest",
+        "postcss": "latest",
+        "tailwindcss": "latest",
+        "typescript": "latest",
+        "@types/node": "latest",
+        "@types/react": "latest",
+        "@types/react-dom": "latest"
+    }
+}

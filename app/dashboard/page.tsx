@@ -56,7 +56,7 @@ function DashboardContent() {
     }
 
     return (
-        <div className="flex h-screen flex-col p-4 md:p-6 gap-6 relative z-10 overflow-hidden">
+        <div className="hud-dashboard-layout flex h-screen flex-col p-4 md:p-6 gap-6 relative z-10 overflow-hidden">
             {/* Scanline Layer */}
             <div className="scanline top-0"></div>
 
@@ -85,8 +85,8 @@ function DashboardContent() {
 
                 <div className="flex items-center gap-2 sm:gap-6">
                     <div className={`px-4 h-10 flex items-center justify-center rounded-lg text-[10px] font-bold tracking-widest uppercase border ${state.economy === 'FULL_BUY' ? 'bg-green-500/10 border-green-500/40 text-green-400' :
-                            state.economy === 'ECO' ? 'bg-red-500/10 border-red-500/40 text-red-400' :
-                                'bg-primary/10 border-primary/40 text-primary'
+                        state.economy === 'ECO' ? 'bg-red-500/10 border-red-500/40 text-red-400' :
+                            'bg-primary/10 border-primary/40 text-primary'
                         }`}>
                         {state.economy || 'ANALYZING...'}
                     </div>

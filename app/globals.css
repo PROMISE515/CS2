@@ -82,13 +82,25 @@
     animation: scanline 8s linear infinite;
 }
 
+/* 专门为战术 HUD 仪表盘设计的样式类 */
+@utility hud-dashboard-layout {
+    @apply bg-background-dark text-white font-display min-h-screen overflow-hidden selection:bg-primary/30;
+    background-image:
+        linear-gradient(rgba(255, 122, 0, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 122, 0, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+}
+
 @layer base {
     body {
-        @apply bg-background-dark text-white font-display min-h-screen overflow-hidden selection:bg-primary/30;
-        background-image:
-            linear-gradient(rgba(255, 122, 0, 0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255, 122, 0, 0.03) 1px, transparent 1px);
-        background-size: 40px 40px;
+        @apply bg-navy-grey text-slate-300 font-technical font-light;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+        @apply font-headline font-[900] tracking-[-0.05em] uppercase;
     }
 }
 

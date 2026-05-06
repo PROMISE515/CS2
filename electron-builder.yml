@@ -1,0 +1,25 @@
+appId: com.cs2coach.app
+productName: CS2 Coach
+directories:
+  output: dist
+files:
+  - out/**/*
+  - server/**/*
+  - lib/**/*
+  - electron/**/*
+  - package.json
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true

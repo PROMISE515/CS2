@@ -1,12 +1,19 @@
 {
-    "name": "stratlog-cloud",
+    "name": "cs2-coach",
     "version": "1.0.0",
+    "description": "CS2 AI 教练 - 实时战术建议",
+    "author": "BBAL2025",
     "private": true,
+    "main": "electron/main.js",
     "scripts": {
         "dev": "next dev",
         "build": "next build",
         "start": "next start",
-        "lint": "next lint"
+        "lint": "next lint",
+        "electron:dev": "concurrently \"next dev\" \"wait-on http://localhost:3000 && electron .\"",
+        "electron:build": "next build && electron-builder",
+        "package:win": "next build && electron-builder --win",
+        "package:mac": "next build && electron-builder --mac"
     },
     "dependencies": {
         "@pusher/push-notifications-server": "^1.2.2",
@@ -22,12 +29,19 @@
     },
     "devDependencies": {
         "@tailwindcss/postcss": "^4.1.18",
+        "@types/express": "^5.0.6",
         "@types/node": "latest",
         "@types/react": "latest",
         "@types/react-dom": "latest",
         "autoprefixer": "latest",
+        "concurrently": "^9.1.2",
+        "electron": "^35.7.5",
+        "electron-builder": "^26.0.0",
+        "express": "^5.2.1",
         "postcss": "latest",
         "tailwindcss": "latest",
-        "typescript": "latest"
+        "tsx": "^4.19.0",
+        "typescript": "latest",
+        "wait-on": "^8.0.3"
     }
 }

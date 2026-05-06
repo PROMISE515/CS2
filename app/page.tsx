@@ -1,11 +1,25 @@
 'use client';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+
+function generateSessionId() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID().replace(/-/g, '').substring(0, 12);
+    }
+    return Math.random().toString(36).substring(2, 14);
+}
 
 export default function Home() {
-    const sessionId = "debug_user_123";
-    const dashboardUrl = `https://cs-2-coral.vercel.app/dashboard?s=${sessionId}`;
+    const [sessionId, setSessionId] = useState('');
+    const [dashboardUrl, setDashboardUrl] = useState('');
+
+    useEffect(() => {
+        const id = generateSessionId();
+        setSessionId(id);
+        setDashboardUrl(`${window.location.origin}/dashboard?s=${id}`);
+    }, []);
 
     const downloadConnector = () => {
+        const apiUrl = typeof window !== 'undefined' ? window.location.origin : '';
         const batContent = `@echo off
 setlocal
 echo StratLog CS2 Connector v1.0
@@ -29,7 +43,7 @@ set "CFGFile=%CS2Path%\\gamestate_integration_stratlog.cfg"
 (
 echo "StratLog GSI v2.0"
 echo {
-echo     "uri"           "https://cs-2-coral.vercel.app/api/gsi"
+echo     "uri"           "${apiUrl}/api/gsi"
 echo     "timeout"       "5.0"
 echo     "buffer"        "0.1"
 echo     "throttle"      "0.5"
@@ -38,6 +52,7 @@ echo     "data"
 echo     {
 echo         "map"                   "1"
 echo         "round"                 "1"
+echo         "allplayers"            "1"
 echo         "player_id"             "1"
 echo         "player_state"          "1"
 echo         "player_weapons"        "1"
@@ -51,7 +66,8 @@ echo     }
 echo }
 ) > "%CFGFile%"
 echo [SUCCESS] StratLog is now connected to CS2!
-echo [INFO] You can now open the Dashboard on your mobile phone.
+echo [INFO] Session: ${sessionId}
+echo [INFO] Dashboard: ${dashboardUrl}
 pause`;
         const blob = new Blob([batContent], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
@@ -64,12 +80,13 @@ pause`;
         URL.revokeObjectURL(url);
     };
 
-    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(dashboardUrl)}&color=0b0f1a&bgcolor=ffffff`;
+    const qrCodeUrl = dashboardUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(dashboardUrl)}&color=0b0f1a&bgcolor=ffffff` : '';
 
     const downloadConfig = () => {
+        const apiUrl = typeof window !== 'undefined' ? window.location.origin : '';
         const cfgContent = `"StratLog GSI v2.0"
 {
-    "uri"           "https://cs-2-coral.vercel.app/api/gsi"
+    "uri"           "${apiUrl}/api/gsi"
     "timeout"       "5.0"
     "buffer"        "0.1"
     "throttle"      "0.5"
@@ -78,6 +95,7 @@ pause`;
     {
         "map"                   "1"
         "round"                 "1"
+        "allplayers"            "1"
         "player_id"             "1"
         "player_state"          "1"
         "player_weapons"        "1"

@@ -2,199 +2,228 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import Pusher from 'pusher-js';
-import * as Beams from '@pusher/push-notifications-web';
+
+interface GameState {
+    map: string;
+    round: number;
+    phase: string;
+    team: string;
+    economy: string;
+    playerName: string;
+    health: number;
+    money: number;
+    aliveCount: { ct: number; t: number };
+    score: { ct: number; t: number };
+    bombPlanted: boolean;
+    kills: number;
+    deaths: number;
+    aiAdvice: {
+        situation: string;
+        command: string;
+        urgency: 'high' | 'medium' | 'low';
+        buyAdvice?: string;
+    } | null;
+}
 
 function DashboardContent() {
     const searchParams = useSearchParams();
-    const sessionId = searchParams.get('s') || 'debug_user_123';
-    const [state, setState] = useState<any>(null);
+    const sessionId = searchParams.get('s') || '';
+    const [state, setState] = useState<GameState | null>(null);
+    const [connected, setConnected] = useState(false);
 
     useEffect(() => {
-        if (!process.env.NEXT_PUBLIC_PUSHER_KEY || !process.env.NEXT_PUBLIC_PUSHER_CLUSTER) {
-            console.error('❌ Missing Pusher environment variables!');
-            return;
-        }
-
-        const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY, {
-            cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
-        });
-
-        const channel = pusher.subscribe(`session-${sessionId}`);
-        channel.bind('state-update', (data: any) => {
-            setState(data);
-        });
-
-        if (process.env.NEXT_PUBLIC_PUSHER_BEAMS_INSTANCE_ID) {
-            try {
-                const beamsClient = new Beams.Client({
-                    instanceId: process.env.NEXT_PUBLIC_PUSHER_BEAMS_INSTANCE_ID,
+        // Pusher 可用时用实时推送，否则轮询
+        if (process.env.NEXT_PUBLIC_PUSHER_KEY && process.env.NEXT_PUBLIC_PUSHER_CLUSTER) {
+            import('pusher-js').then(({ default: Pusher }) => {
+                const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
+                    cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
                 });
-                beamsClient.start()
-                    .then(() => beamsClient.addDeviceInterest(`user-${sessionId}`))
-                    .catch(console.error);
-            } catch (error) {
-                console.warn('Beams initialization failed:', error);
-            }
+                const channel = pusher.subscribe(`session-${sessionId}`);
+                channel.bind('state-update', (data: GameState) => {
+                    setState(data);
+                    setConnected(true);
+                });
+            });
+        } else {
+            // 轮询模式
+            const interval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/state?s=${sessionId}`);
+                    const data = await res.json();
+                    if (data.state) {
+                        setState(data.state);
+                        setConnected(true);
+                    }
+                } catch {}
+            }, 1000);
+            return () => clearInterval(interval);
         }
-
-        return () => {
-            pusher.unsubscribe(`session-${sessionId}`);
-        };
     }, [sessionId]);
 
+    // 等待连接
     if (!state) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center text-primary/60">
-                <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-primary mb-6 shadow-[0_0_20px_rgba(255,123,0,0.3)]"></div>
-                <div className="hud-corner hud-tl !w-4 !h-4"></div>
-                <div className="hud-corner hud-br !w-4 !h-4"></div>
-                <p className="font-Technical uppercase tracking-[0.3em] text-sm font-bold">Initializing Uplink...</p>
-                <p className="text-[10px] mt-4 opacity-50 font-mono">Session: {sessionId}</p>
+            <div className="hud-dashboard-layout min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-cs-orange mx-auto mb-6"></div>
+                    <p className="text-cs-orange text-xs tracking-[0.3em] uppercase">等待 CS2 连接...</p>
+                    <p className="text-white/30 text-[10px] mt-2 font-mono">Session: {sessionId}</p>
+                </div>
             </div>
         );
     }
 
+    const isFreezetime = state.phase === 'freezetime';
+    const urgencyColor = state.aiAdvice?.urgency === 'high' ? 'text-red-400' :
+        state.aiAdvice?.urgency === 'low' ? 'text-green-400' : 'text-yellow-400';
+    const urgencyBorder = state.aiAdvice?.urgency === 'high' ? 'border-red-500/40' :
+        state.aiAdvice?.urgency === 'low' ? 'border-green-500/40' : 'border-yellow-500/40';
+
     return (
-        <div className="hud-dashboard-layout flex h-screen flex-col p-4 md:p-6 gap-6 relative z-10 overflow-hidden">
-            {/* Scanline Layer */}
-            <div className="scanline top-0"></div>
-
-            {/* Header / Top Bar */}
-            <header className="flex items-center justify-between backdrop-blur-xl bg-white/5 border border-white/10 px-4 md:px-8 py-4 rounded-xl relative">
-                <div className="hud-corner hud-tl"></div>
-                <div className="hud-corner hud-tr"></div>
-
-                <div className="flex items-center gap-4 md:gap-6">
-                    <div className="flex items-center gap-3">
-                        <span className="material-symbols-outlined text-primary scale-125">radar</span>
-                        <h2 className="text-white text-lg md:text-2xl font-bold tracking-tighter uppercase whitespace-nowrap">Tactical HUD</h2>
-                    </div>
-                    <div className="h-8 w-[1px] bg-white/20 hidden sm:block"></div>
-                    <div className="flex items-center gap-4 md:gap-8">
-                        <div className="flex flex-col">
-                            <span className="text-[10px] text-primary font-bold uppercase tracking-widest leading-none">Map</span>
-                            <span className="text-sm md:text-lg font-medium">{state.map?.toUpperCase() || 'UNKNOWN'}</span>
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-[10px] text-primary font-bold uppercase tracking-widest leading-none">Round</span>
-                            <span className="text-sm md:text-lg font-medium">{state.round || '0'} / 24</span>
-                        </div>
+        <div className="hud-dashboard-layout min-h-screen p-4 md:p-6 flex flex-col gap-4">
+            {/* 顶部状态栏 */}
+            <header className="glass-panel rounded-xl p-4 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <span className="material-symbols-outlined text-cs-orange text-2xl">radar</span>
+                    <div>
+                        <h1 className="text-white text-lg font-bold tracking-tight">CS2 AI 教练</h1>
+                        <p className="text-white/40 text-[10px] font-mono">{state.map.toUpperCase()} | 第{state.round}回合</p>
                     </div>
                 </div>
-
-                <div className="flex items-center gap-2 sm:gap-6">
-                    <div className={`px-4 h-10 flex items-center justify-center rounded-lg text-[10px] font-bold tracking-widest uppercase border ${state.economy === 'FULL_BUY' ? 'bg-green-500/10 border-green-500/40 text-green-400' :
-                        state.economy === 'ECO' ? 'bg-red-500/10 border-red-500/40 text-red-400' :
-                            'bg-primary/10 border-primary/40 text-primary'
-                        }`}>
-                        {state.economy || 'ANALYZING...'}
+                <div className="flex items-center gap-6">
+                    <div className="text-center">
+                        <p className="text-[10px] text-white/40 tracking-widest uppercase">比分</p>
+                        <p className="text-white text-xl font-bold font-mono">{state.score.ct} : {state.score.t}</p>
+                    </div>
+                    <div className="text-center">
+                        <p className="text-[10px] text-white/40 tracking-widest uppercase">经济</p>
+                        <p className={`text-sm font-bold font-mono ${state.economy === 'FULL_BUY' ? 'text-green-400' : state.economy === 'ECO' ? 'text-red-400' : 'text-yellow-400'}`}>{state.economy}</p>
+                    </div>
+                    <div className={`px-3 py-1 rounded text-[10px] font-bold tracking-widest uppercase border ${isFreezetime ? 'border-cs-orange text-cs-orange bg-cs-orange/10' : 'border-white/20 text-white/50'}`}>
+                        {isFreezetime ? '买枪期' : '对枪中'}
                     </div>
                 </div>
             </header>
 
-            <main className="flex flex-1 gap-6 overflow-hidden flex-col md:flex-row">
-                {/* Left Sidebar: Tactics */}
-                <div className="flex flex-col gap-6 md:w-1/3 overflow-y-auto pr-2 custom-scrollbar">
-                    {/* Tactical Card */}
-                    <div className="flex flex-col flex-1 bg-white/5 border border-white/10 rounded-xl overflow-hidden relative">
-                        <div className="hud-corner hud-tr !w-4 !h-4"></div>
-                        <div className="hud-corner hud-bl !w-4 !h-4"></div>
-
-                        <div className="p-6 border-b border-white/10 bg-white/5">
-                            <h2 className="text-white tracking-tighter text-xl font-bold uppercase flex items-center gap-3">
-                                <span className="material-symbols-outlined text-primary">strategy</span>
-                                {state.tactic?.title || 'Tactical Plan'}
-                            </h2>
-                        </div>
-
-                        <div className="p-6 space-y-4">
-                            <p className="text-white/60 text-xs italic mb-4 leading-relaxed">
-                                {state.tactic?.description}
-                            </p>
-
-                            <div className="space-y-4">
-                                {state.tactic?.steps?.map((step: string, i: number) => (
-                                    <div key={i} className="grid grid-cols-[30px_1fr] gap-x-4 group">
-                                        <div className="flex flex-col items-center">
-                                            <div className="size-8 rounded bg-primary/20 border border-primary/40 flex items-center justify-center text-primary text-sm font-bold">{i + 1}</div>
-                                            {i < state.tactic.steps.length - 1 && (
-                                                <div className="w-[1px] bg-gradient-to-b from-primary/40 to-white/10 h-8 mt-2"></div>
-                                            )}
-                                        </div>
-                                        <div className="flex flex-col py-1">
-                                            <p className="text-white text-sm font-bold uppercase tracking-tight leading-tight">{step}</p>
-                                        </div>
-                                    </div>
-                                ))}
+            <div className="flex-1 flex flex-col md:flex-row gap-4">
+                {/* 左侧: 玩家信息 */}
+                <div className="md:w-1/4 flex flex-col gap-4">
+                    {/* 你的状态 */}
+                    <div className="glass-panel rounded-xl p-5">
+                        <p className="text-[10px] text-cs-orange tracking-widest uppercase mb-3">你的状态</p>
+                        <div className="space-y-3">
+                            <div className="flex justify-between">
+                                <span className="text-white/50 text-sm">玩家</span>
+                                <span className="text-white font-mono text-sm">{state.playerName}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-white/50 text-sm">血量</span>
+                                <span className={`font-mono text-sm ${state.health > 50 ? 'text-green-400' : state.health > 0 ? 'text-yellow-400' : 'text-red-400'}`}>{state.health} HP</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-white/50 text-sm">金钱</span>
+                                <span className="text-yellow-400 font-mono text-sm">${state.money}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-white/50 text-sm">K / D</span>
+                                <span className="text-white font-mono text-sm">{state.kills} / {state.deaths}</span>
                             </div>
                         </div>
                     </div>
 
-                    {/* Combat Effectiveness (Placeholder for more data) */}
-                    <div className="flex flex-col gap-4 p-6 rounded-xl bg-white/5 border border-white/10">
-                        <div className="flex items-center justify-between">
-                            <p className="text-white text-xs font-bold tracking-widest uppercase opacity-60">Success Probability</p>
-                            <p className="text-primary text-lg font-bold font-mono">85%</p>
-                        </div>
-                        <div className="rounded-full bg-white/5 h-1.5 p-[1px] border border-white/10 overflow-hidden">
-                            <div className="h-full rounded-full bg-gradient-to-r from-primary/50 to-primary" style={{ width: '85%' }}></div>
+                    {/* 存活人数 */}
+                    <div className="glass-panel rounded-xl p-5">
+                        <p className="text-[10px] text-cs-orange tracking-widest uppercase mb-3">存活人数</p>
+                        <div className="flex items-center justify-around">
+                            <div className="text-center">
+                                <p className="text-blue-400 text-3xl font-bold font-mono">{state.aliveCount.ct}</p>
+                                <p className="text-[10px] text-blue-400/60 tracking-widest">CT</p>
+                            </div>
+                            <div className="text-white/20 text-2xl">vs</div>
+                            <div className="text-center">
+                                <p className="text-yellow-400 text-3xl font-bold font-mono">{state.aliveCount.t}</p>
+                                <p className="text-[10px] text-yellow-400/60 tracking-widest">T</p>
+                            </div>
                         </div>
                     </div>
+
+                    {/* 炸弹状态 */}
+                    {state.bombPlanted && (
+                        <div className="glass-panel rounded-xl p-4 border border-red-500/30 bg-red-500/5">
+                            <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined text-red-400">warning</span>
+                                <p className="text-red-400 text-sm font-bold tracking-widest uppercase">炸弹已放置</p>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                {/* Right Content: Map Visualization */}
-                <div className="flex-1 flex flex-col gap-6">
-                    <div className="flex-1 bg-white/5 border border-white/10 rounded-xl relative overflow-hidden flex items-center justify-center min-h-[300px]">
-                        <div className="hud-corner hud-tl"></div>
-                        <div className="hud-corner hud-tr"></div>
-                        <div className="hud-corner hud-bl"></div>
-                        <div className="hud-corner hud-br"></div>
+                {/* 右侧: AI 战术建议 */}
+                <div className="flex-1 flex flex-col gap-4">
+                    {state.aiAdvice ? (
+                        <>
+                            {/* AI 指挥核心 */}
+                            <div className={`glass-panel rounded-xl p-6 border-2 ${urgencyBorder} relative overflow-hidden`}>
+                                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cs-orange via-cs-orange/50 to-transparent"></div>
 
-                        {/* Decorative HUD Elements */}
-                        <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle, #ff7b00 1px, transparent 1px)', backgroundSize: '30px 30px' }}></div>
+                                <div className="flex items-center justify-between mb-5">
+                                    <div className="flex items-center gap-3">
+                                        <span className="material-symbols-outlined text-cs-orange text-2xl">psychology</span>
+                                        <h2 className="text-white text-xl font-bold tracking-tight">AI 战术指挥</h2>
+                                    </div>
+                                    <span className={`text-xs px-3 py-1 rounded-full border font-bold tracking-widest uppercase ${urgencyColor} ${urgencyBorder}`}>
+                                        {state.aiAdvice.urgency === 'high' ? '紧迫' : state.aiAdvice.urgency === 'low' ? '常规' : '关注'}
+                                    </span>
+                                </div>
 
-                        <div className="relative w-[90%] md:w-[70%] aspect-square flex items-center justify-center border-2 border-white/5 rounded-full overflow-hidden">
-                            <div className="absolute inset-0 border border-primary/20 rounded-full animate-pulse"></div>
-
-                            {/* Tactical Feed overlay */}
-                            <div className="absolute top-6 right-6 z-20">
-                                <div className="flex items-center gap-2 bg-black/60 border border-primary/40 px-3 py-1 rounded backdrop-blur-md">
-                                    <span className="size-2 bg-primary rounded-full animate-pulse"></span>
-                                    <span className="text-[10px] font-mono text-primary uppercase tracking-widest">UPLINK ACTIVE</span>
+                                <div className="space-y-5">
+                                    <div>
+                                        <p className="text-[10px] text-cs-orange tracking-widest uppercase mb-1">局势判断</p>
+                                        <p className="text-white text-lg">{state.aiAdvice.situation}</p>
+                                    </div>
+                                    <div className="h-px bg-white/10"></div>
+                                    <div>
+                                        <p className="text-[10px] text-cs-orange tracking-widest uppercase mb-1">战术指挥</p>
+                                        <p className="text-white text-xl font-bold">{state.aiAdvice.command}</p>
+                                    </div>
+                                    {state.aiAdvice.buyAdvice && (
+                                        <>
+                                            <div className="h-px bg-white/10"></div>
+                                            <div>
+                                                <p className="text-[10px] text-cs-orange tracking-widest uppercase mb-1">买枪建议</p>
+                                                <p className="text-yellow-400 text-lg">{state.aiAdvice.buyAdvice}</p>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             </div>
 
-                            <img
-                                src={`https://cs-2-coral.vercel.app/maps/${state.map?.toLowerCase() || 'mirage'}.png`}
-                                alt="Map Preview"
-                                className="w-[80%] h-[80%] object-contain filter brightness-125 invert opacity-20"
-                                onError={(e: any) => {
-                                    e.target.src = 'https://lh3.googleusercontent.com/aida-public/AB6AXuBtrBXppIFGNo1RIbzBberiTyvRciTbl558h6ISWOReSm2O_NZ7Bg-MuxsO3tKFug1aGcSlS-4CtmhwVwfUqpfEKBfp_7f82mt9wJ1w-fiDs3RqKqizdh5CSK53FKykeIACDyyiSZEHL8W3AgBfvlMR256d1A9_c8uRo9eK50nD0OY_P-zAuuF8SFSktlJf4LHL-c5TJM2IWsC-n4rYlbnbIeWzFEraK4Ajnmjtf0p-919SYh1030IYqrP9kLiRm-e98Um1z_b7CWo';
-                                }}
-                            />
-
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <span className="material-symbols-outlined text-[12rem] text-primary/10 select-none">radar</span>
+                            {/* 提示 */}
+                            <div className="glass-panel rounded-xl p-4 text-center">
+                                <p className="text-white/40 text-xs">
+                                    <span className="material-symbols-outlined text-sm align-middle mr-1">info</span>
+                                    将以上战术建议告诉队友，执行配合
+                                </p>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="glass-panel rounded-xl p-8 flex-1 flex items-center justify-center">
+                            <div className="text-center">
+                                <span className="material-symbols-outlined text-white/10 text-6xl">sports_esports</span>
+                                <p className="text-white/30 text-sm mt-4">回合进行中...</p>
+                                <p className="text-white/20 text-xs mt-1">AI 将在下回合买枪期给出战术建议</p>
                             </div>
                         </div>
+                    )}
+                </div>
+            </div>
 
-                        <div className="absolute bottom-6 left-6 text-white/40 text-[10px] font-mono uppercase tracking-widest">
-                            System: Online <br /> Latency: 14ms
-                        </div>
-                    </div>
-                </div>
-            </main>
-
-            {/* Footer / Status Bar */}
-            <footer className="flex items-center justify-between px-2 text-[8px] md:text-[10px] font-mono text-white/30 uppercase tracking-[0.2em]">
-                <div className="flex gap-4 md:gap-6">
-                    <span className="text-primary italic">Connected to {sessionId}</span>
-                </div>
-                <div className="flex gap-6 hidden sm:flex">
-                    <span>Encryption: AES-256</span>
-                    <span className="text-primary/60 tracking-normal">BUILD: 2026.01.19.HUD.v1</span>
-                </div>
+            {/* 底部状态 */}
+            <footer className="flex items-center justify-between px-2 text-[10px] font-mono text-white/30 uppercase tracking-widest">
+                <span className={connected ? 'text-green-500' : 'text-yellow-500'}>
+                    {connected ? '已连接' : '等待连接...'}
+                </span>
+                <span>Session: {sessionId}</span>
             </footer>
         </div>
     );
@@ -203,8 +232,8 @@ function DashboardContent() {
 export default function Dashboard() {
     return (
         <Suspense fallback={
-            <div className="min-h-screen bg-navy-grey flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-primary"></div>
+            <div className="hud-dashboard-layout min-h-screen flex items-center justify-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-cs-orange"></div>
             </div>
         }>
             <DashboardContent />

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: transparent;
+            overflow: hidden;
+            user-select: none;
+            -webkit-app-region: drag;
+        }
+        .overlay {
+            background: rgba(11, 15, 26, 0.85);
+            border: 1px solid rgba(255, 122, 0, 0.3);
+            border-radius: 8px;
+            padding: 12px 16px;
+            min-width: 220px;
+            max-width: 320px;
+            backdrop-filter: blur(10px);
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        .dot {
+            width: 6px;
+            height: 6px;
+            background: #FF7A00;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .score {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .score-num {
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+            font-family: monospace;
+        }
+        .score-ct { color: #60a5fa; }
+        .score-t { color: #facc15; }
+        .score-vs {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.3);
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            margin-bottom: 4px;
+        }
+        .info-label { color: rgba(255, 255, 255, 0.4); }
+        .info-value { color: white; font-family: monospace; }
+        .eco-eco { color: #ef4444; }
+        .eco-half { color: #eab308; }
+        .eco-force { color: #f97316; }
+        .eco-full { color: #22c55e; }
+        .divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+            margin: 8px 0;
+        }
+        .advice {
+            font-size: 13px;
+            color: white;
+            font-weight: 600;
+            line-height: 1.4;
+        }
+        .advice-label {
+            font-size: 9px;
+            color: #FF7A00;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            margin-bottom: 4px;
+        }
+        .urgency-high { border-color: rgba(239, 68, 68, 0.5); }
+        .urgency-low { border-color: rgba(34, 197, 94, 0.3); }
+        .waiting {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 11px;
+            padding: 8px 0;
+        }
+        .close-btn {
+            -webkit-app-region: no-drag;
+            position: absolute;
+            top: 4px;
+            right: 8px;
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1;
+        }
+        .close-btn:hover { color: white; }
+    </style>
+</head>
+<body>
+    <div class="overlay" id="overlay">
+        <button class="close-btn" onclick="window.electronAPI?.close()">×</button>
+        <div class="header">
+            <span class="dot"></span>
+            <span>CS2 Coach</span>
+            <span id="phase"></span>
+        </div>
+        <div class="score">
+            <span class="score-num score-ct" id="ct-score">0</span>
+            <span class="score-vs">VS</span>
+            <span class="score-num score-t" id="t-score">0</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">回合</span>
+            <span class="info-value" id="round">-</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">经济</span>
+            <span class="info-value" id="economy">-</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">存活</span>
+            <span class="info-value" id="alive">CT 0 / T 0</span>
+        </div>
+        <div class="divider"></div>
+        <div id="advice-area">
+            <div class="advice-label">AI 战术</div>
+            <div class="advice" id="advice">等待回合结束...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+
+        async function pollState() {
+            try {
+                const res = await fetch(`${API_BASE}/api/state?s=default`);
+                const data = await res.json();
+                if (data.state) updateUI(data.state);
+            } catch {}
+        }
+
+        function updateUI(s) {
+            document.getElementById('ct-score').textContent = s.score?.ct ?? 0;
+            document.getElementById('t-score').textContent = s.score?.t ?? 0;
+            document.getElementById('round').textContent = `第${s.round || '-'}回合`;
+            document.getElementById('alive').textContent = `CT ${s.aliveCount?.ct ?? 0} / T ${s.aliveCount?.t ?? 0}`;
+
+            const phase = s.phase === 'freezetime' ? '买枪期' : '对枪中';
+            document.getElementById('phase').textContent = phase;
+
+            const ecoEl = document.getElementById('economy');
+            ecoEl.textContent = s.economy || '-';
+            ecoEl.className = 'info-value ' + getEcoClass(s.economy);
+
+            if (s.aiAdvice) {
+                const overlay = document.getElementById('overlay');
+                overlay.className = 'overlay urgency-' + (s.aiAdvice.urgency || 'medium');
+                document.getElementById('advice').textContent = s.aiAdvice.command || s.aiAdvice.situation || '-';
+            }
+        }
+
+        function getEcoClass(eco) {
+            if (eco === 'ECO') return 'eco-eco';
+            if (eco === 'HALF_BUY') return 'eco-half';
+            if (eco === 'FORCE') return 'eco-force';
+            if (eco === 'FULL_BUY') return 'eco-full';
+            return '';
+        }
+
+        setInterval(pollState, 1000);
+        pollState();
+    </script>
+</body>
+</html>

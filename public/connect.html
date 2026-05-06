@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CS2 Coach - 手机连接</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0B0F1A;
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            text-align: center;
+            max-width: 400px;
+        }
+        .icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+            color: #FF7A00;
+        }
+        .subtitle {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 30px;
+        }
+        .qr-box {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            display: inline-block;
+            margin-bottom: 20px;
+            box-shadow: 0 0 30px rgba(255, 122, 0, 0.2);
+        }
+        .qr-box img {
+            width: 200px;
+            height: 200px;
+            display: block;
+        }
+        .url-box {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            font-family: monospace;
+            font-size: 12px;
+            word-break: break-all;
+            color: #FF7A00;
+        }
+        .steps {
+            text-align: left;
+            margin-top: 30px;
+        }
+        .step {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            align-items: flex-start;
+        }
+        .step-num {
+            width: 24px;
+            height: 24px;
+            background: #FF7A00;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        .step-text {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.5;
+        }
+        .tip {
+            margin-top: 30px;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">📱</div>
+        <h1>手机查看战术</h1>
+        <p class="subtitle">用手机扫描二维码，实时查看 AI 战术建议</p>
+
+        <div class="qr-box">
+            <img id="qr" alt="QR Code" />
+        </div>
+
+        <div class="url-box" id="url">加载中...</div>
+
+        <div class="steps">
+            <div class="step">
+                <span class="step-num">1</span>
+                <span class="step-text">确保手机和电脑连接同一个 WiFi</span>
+            </div>
+            <div class="step">
+                <span class="step-num">2</span>
+                <span class="step-text">用手机扫描上方二维码</span>
+            </div>
+            <div class="step">
+                <span class="step-num">3</span>
+                <span class="step-text">把手机放在键盘旁边，随时查看战术</span>
+            </div>
+        </div>
+
+        <p class="tip">需要在同一局域网内才能访问</p>
+    </div>
+
+    <script>
+        // 获取当前服务器地址
+        const host = window.location.hostname;
+        const port = window.location.port;
+        const protocol = window.location.protocol;
+        const mobileUrl = `${protocol}//${host}:${port}/dashboard?s=default`;
+
+        document.getElementById('url').textContent = mobileUrl;
+
+        // 生成 QR 码
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(mobileUrl)}&color=0b0f1a&bgcolor=ffffff`;
+        document.getElementById('qr').src = qrUrl;
+    </script>
+</body>
+</html>

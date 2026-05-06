@@ -1,23 +1,25 @@
 import Pusher from 'pusher';
 import PushNotifications from '@pusher/push-notifications-server';
 
-// 初始化 Pusher
-export const pusher = new Pusher({
-    appId: process.env.PUSHER_APP_ID!,
-    key: process.env.NEXT_PUBLIC_PUSHER_KEY!,
-    secret: process.env.PUSHER_SECRET!,
-    cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
-    useTLS: true,
-});
+// 初始化 Pusher（环境变量缺失时降级为 null）
+export const pusher =
+    process.env.PUSHER_APP_ID && process.env.NEXT_PUBLIC_PUSHER_KEY && process.env.PUSHER_SECRET
+        ? new Pusher({
+              appId: process.env.PUSHER_APP_ID,
+              key: process.env.NEXT_PUBLIC_PUSHER_KEY,
+              secret: process.env.PUSHER_SECRET,
+              cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || 'ap3',
+              useTLS: true,
+          })
+        : null;
 
 // 初始化 Pusher Beams (推送到手机通知栏)
-// 只在有环境变量时初始化，避免构建时报错
 export const beamsClient =
     process.env.PUSHER_BEAMS_INSTANCE_ID && process.env.PUSHER_BEAMS_SECRET_KEY
         ? new PushNotifications({
-            instanceId: process.env.PUSHER_BEAMS_INSTANCE_ID,
-            secretKey: process.env.PUSHER_BEAMS_SECRET_KEY,
-        })
+              instanceId: process.env.PUSHER_BEAMS_INSTANCE_ID,
+              secretKey: process.env.PUSHER_BEAMS_SECRET_KEY,
+          })
         : null;
 
 // 战术生成逻辑 (迁移自 tactic_generator.py)

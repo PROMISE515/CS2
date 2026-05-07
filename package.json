@@ -8,7 +8,7 @@
     "scripts": {
         "dev": "next dev",
         "build": "next build",
-        "build:electron": "tsc -p tsconfig.electron.json",
+        "build:electron": "node scripts/bundle-electron.mjs",
         "start": "next start",
         "lint": "next lint",
         "electron:dev": "concurrently \"next dev\" \"wait-on http://localhost:3000 && electron .\"",
@@ -39,6 +39,7 @@
         "concurrently": "^9.1.2",
         "electron": "^35.7.5",
         "electron-builder": "^26.0.0",
+        "esbuild": "^0.25.12",
         "express": "^5.2.1",
         "postcss": "latest",
         "tailwindcss": "latest",

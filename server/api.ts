@@ -195,4 +195,3 @@ function startServer(port: number = 0, publicAccess: boolean = false): Promise<{
 }
 
 export { app, startServer, serveStatic };
-module.exports = { app, startServer, serveStatic };

@@ -5,6 +5,7 @@ directories:
 files:
   - out/**/*
   - dist-electron/**/*
+  - electron/**/*
   - package.json
 win:
   target:

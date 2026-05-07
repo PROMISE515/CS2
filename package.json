@@ -20,6 +20,7 @@
         "@pusher/push-notifications-server": "^1.2.2",
         "@pusher/push-notifications-web": "^1.0.9",
         "clsx": "latest",
+        "express": "^5.2.1",
         "lucide-react": "latest",
         "next": "latest",
         "pusher": "^5.1.2",

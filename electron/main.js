@@ -1,4 +1,3 @@
-// Electron 主进程入口（JavaScript）
-// 加载 TypeScript 版本
-require('tsx/cjs');
-require('./main.ts');
+// Electron 主进程入口
+// 使用编译后的 JavaScript
+require('../dist-electron/electron/main.js');

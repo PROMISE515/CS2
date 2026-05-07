@@ -8,12 +8,13 @@
     "scripts": {
         "dev": "next dev",
         "build": "next build",
+        "build:electron": "tsc -p tsconfig.electron.json",
         "start": "next start",
         "lint": "next lint",
         "electron:dev": "concurrently \"next dev\" \"wait-on http://localhost:3000 && electron .\"",
-        "electron:build": "next build && electron-builder",
-        "package:win": "next build && electron-builder --win",
-        "package:mac": "next build && electron-builder --mac"
+        "electron:build": "npm run build && npm run build:electron && electron-builder",
+        "package:win": "npm run build && npm run build:electron && electron-builder --win",
+        "package:mac": "npm run build && npm run build:electron && electron-builder --mac"
     },
     "dependencies": {
         "@pusher/push-notifications-server": "^1.2.2",

@@ -4,9 +4,7 @@ directories:
   output: dist
 files:
   - out/**/*
-  - server/**/*
-  - lib/**/*
-  - electron/**/*
+  - dist-electron/**/*
   - package.json
 win:
   target:

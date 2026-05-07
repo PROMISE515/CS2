@@ -2,6 +2,7 @@ import { app, BrowserWindow, shell, screen } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import { execSync } from 'child_process';
 import { startServer, serveStatic } from '../server/api';
 
 let mainWindow: BrowserWindow | null = null;
@@ -21,8 +22,93 @@ function getLocalIP(): string {
     return '127.0.0.1';
 }
 
+// 检测 Steam 路径（Windows 注册表）
+function findSteamPath(): string | null {
+    if (process.platform !== 'win32') {
+        // macOS / Linux
+        const home = process.env.HOME || '';
+        return process.platform === 'darwin'
+            ? path.join(home, 'Library', 'Application Support', 'Steam')
+            : path.join(home, '.steam', 'steam');
+    }
+
+    // Windows: 读注册表
+    try {
+        const result = execSync(
+            'reg query "HKCU\\Software\\Valve\\Steam" /v SteamPath',
+            { encoding: 'utf-8', timeout: 3000 }
+        );
+        const match = result.match(/SteamPath\s+REG_SZ\s+(.+)/);
+        if (match) {
+            // 注册表路径用 / 分隔，转成 \
+            return match[1].trim().replace(/\//g, '\\');
+        }
+    } catch {}
+
+    // 备选：常见路径
+    const candidates = [
+        'C:\\Program Files (x86)\\Steam',
+        'C:\\Program Files\\Steam',
+        process.env['PROGRAMFILES(X86)'] + '\\Steam',
+        process.env['PROGRAMFILES'] + '\\Steam',
+    ];
+    for (const p of candidates) {
+        if (p && fs.existsSync(p)) return p;
+    }
+
+    return null;
+}
+
+// 从 Steam libraryfolders.json 获取所有游戏库路径
+function getSteamLibraries(steamPath: string): string[] {
+    const libraries = [steamPath]; // 主库
+
+    try {
+        const foldersJson = path.join(steamPath, 'steamapps', 'libraryfolders.json');
+        const data = JSON.parse(fs.readFileSync(foldersJson, 'utf-8'));
+        for (const key of Object.keys(data)) {
+            const lib = data[key];
+            if (lib.path) {
+                const libPath = process.platform === 'win32'
+                    ? lib.path.replace(/\//g, '\\')
+                    : lib.path;
+                if (!libraries.includes(libPath)) {
+                    libraries.push(libPath);
+                }
+            }
+        }
+    } catch {}
+
+    return libraries;
+}
+
+// 查找 CS2 cfg 目录
+function findCS2CfgDir(): string | null {
+    const steamPath = findSteamPath();
+    if (!steamPath) {
+        console.log('[GSI] Steam not found');
+        return null;
+    }
+
+    const libraries = getSteamLibraries(steamPath);
+
+    for (const lib of libraries) {
+        const cfgDir = path.join(lib, 'steamapps', 'common', 'Counter-Strike Global Offensive', 'game', 'csgo', 'cfg');
+        if (fs.existsSync(cfgDir)) {
+            return cfgDir;
+        }
+        // CS2 有时在 game/csgo/cfg 或 game/csgo/cfg/legacy
+        const cfgDir2 = path.join(lib, 'steamapps', 'common', 'Counter-Strike 2', 'game', 'csgo', 'cfg');
+        if (fs.existsSync(cfgDir2)) {
+            return cfgDir2;
+        }
+    }
+
+    return null;
+}
+
 // 检测 CS2 安装路径并写入 GSI 配置
-function configureCS2GSI(port: number) {
+function configureCS2GSI(port: number): boolean {
     const cfgContent = `"StratLog GSI v2.0"
 {
     "uri"           "http://127.0.0.1:${port}/api/gsi"
@@ -47,44 +133,20 @@ function configureCS2GSI(port: number) {
     }
 }`;
 
-    const possiblePaths: string[] = [];
-
-    if (process.platform === 'win32') {
-        const steamPaths = [
-            'C:\\Program Files (x86)\\Steam',
-            'C:\\Program Files\\Steam',
-            process.env['PROGRAMFILES(X86)'] + '\\Steam',
-            process.env['PROGRAMFILES'] + '\\Steam',
-        ];
-        for (const sp of steamPaths) {
-            possiblePaths.push(
-                path.join(sp, 'steamapps', 'common', 'Counter-Strike Global Offensive', 'game', 'csgo', 'cfg')
-            );
-        }
-    } else if (process.platform === 'darwin') {
-        possiblePaths.push(
-            path.join(process.env.HOME || '', 'Library', 'Application Support', 'Steam', 'steamapps', 'common', 'Counter-Strike Global Offensive', 'game', 'csgo', 'cfg')
-        );
-    } else {
-        possiblePaths.push(
-            path.join(process.env.HOME || '', '.steam', 'steam', 'steamapps', 'common', 'Counter-Strike Global Offensive', 'game', 'csgo', 'cfg')
-        );
-    }
-
-    for (const cfgDir of possiblePaths) {
-        if (fs.existsSync(cfgDir)) {
-            const cfgFile = path.join(cfgDir, 'gamestate_integration_stratlog.cfg');
-            try {
-                fs.writeFileSync(cfgFile, cfgContent, 'utf-8');
-                console.log(`[GSI] Config written to: ${cfgFile}`);
-                return true;
-            } catch (err) {
-                console.error(`[GSI] Failed to write config:`, err);
-            }
+    const cfgDir = findCS2CfgDir();
+    if (cfgDir) {
+        const cfgFile = path.join(cfgDir, 'gamestate_integration_stratlog.cfg');
+        try {
+            fs.writeFileSync(cfgFile, cfgContent, 'utf-8');
+            console.log(`[GSI] Config written to: ${cfgFile}`);
+            return true;
+        } catch (err) {
+            console.error(`[GSI] Failed to write config:`, err);
+            return false;
         }
     }
 
-    console.log('[GSI] CS2 cfg directory not found. User may need to configure manually.');
+    console.log('[GSI] CS2 not found. User needs to start CS2 after Coach.');
     return false;
 }
 

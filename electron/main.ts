@@ -130,11 +130,8 @@ async function createWindow() {
     const { port, close } = await startServer(0, true);
     serverClose = close;
 
-    // 服务静态文件（打包后 __dirname 是 app.asar/dist-electron/electron，本地是 dist-electron/electron）
-    const isPackaged = app.isPackaged;
-    const outDir = isPackaged
-        ? path.resolve(path.join(__dirname, '..', 'out'))        // 打包后: app.asar/out
-        : path.resolve(path.join(__dirname, '..', '..', 'out')); // 本地: 项目根/out
+    // 服务静态文件（__dirname 始终是 dist-electron/electron/，上两级到项目根）
+    const outDir = path.resolve(path.join(__dirname, '..', '..', 'out'));
     serveStatic(outDir);
 
     // 尝试自动配置 CS2 GSI

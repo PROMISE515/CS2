@@ -1,5 +1,6 @@
 import express from 'express';
 import * as path from 'path';
+import * as fs from 'fs';
 import { getEconomyTier, pusher } from '../lib/stratlog';
 import { analyzeGameState, shouldAnalyze } from '../lib/ai-analyze';
 import { getHistory } from '../lib/round-history';
@@ -155,26 +156,26 @@ app.get('/api/state', (req, res) => {
 
 // 生产环境：服务 Next.js 静态导出文件
 function serveStatic(outDir: string) {
-    // 静态资源 (_next 目录)
-    app.use(express.static(outDir));
-
-    // 页面路由：/dashboard → out/dashboard.html
+    // 页面路由：/dashboard → out/dashboard.html（先注册，避免被 static 拦截）
     const pages = ['dashboard', 'tactics', 'leaderboard', 'changelog', 'connect'];
     for (const page of pages) {
         app.get(`/${page}`, (_req, res) => {
-            res.sendFile(path.join(outDir, `${page}.html`));
+            res.type('html').send(fs.readFileSync(path.join(outDir, `${page}.html`), 'utf-8'));
         });
     }
 
     // 根路由
     app.get('/', (_req, res) => {
-        res.sendFile(path.join(outDir, 'index.html'));
+        res.type('html').send(fs.readFileSync(path.join(outDir, 'index.html'), 'utf-8'));
     });
+
+    // 静态资源 (_next 目录、CSS、JS 等)
+    app.use(express.static(outDir));
 
     // 其他路由 fallback
     app.get('/{*path}', (req, res) => {
         if (!req.path.startsWith('/api/')) {
-            res.sendFile(path.join(outDir, '404.html'));
+            res.type('html').send(fs.readFileSync(path.join(outDir, '404.html'), 'utf-8'));
         }
     });
 }

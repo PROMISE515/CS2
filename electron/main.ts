@@ -116,11 +116,7 @@ function createOverlay(port: number) {
     overlayWindow.setVisibleOnAllWorkspaces(true);
 
     // 加载 overlay 页面
-    if (!app.isPackaged) {
-        overlayWindow.loadURL(`http://localhost:3000/overlay.html`);
-    } else {
-        overlayWindow.loadURL(`http://127.0.0.1:${port}/overlay.html`);
-    }
+    overlayWindow.loadURL(`http://127.0.0.1:${port}/overlay.html`);
 
     overlayWindow.on('closed', () => {
         overlayWindow = null;
@@ -134,11 +130,12 @@ async function createWindow() {
     const { port, close } = await startServer(0, true);
     serverClose = close;
 
-    // 生产环境：同时服务静态文件
-    if (!isDev) {
-        const outDir = path.join(__dirname, '../out');
-        serveStatic(outDir);
-    }
+    // 服务静态文件（打包后 __dirname 是 app.asar/dist-electron/electron，本地是 dist-electron/electron）
+    const isPackaged = app.isPackaged;
+    const outDir = isPackaged
+        ? path.resolve(path.join(__dirname, '..', 'out'))        // 打包后: app.asar/out
+        : path.resolve(path.join(__dirname, '..', '..', 'out')); // 本地: 项目根/out
+    serveStatic(outDir);
 
     // 尝试自动配置 CS2 GSI
     configureCS2GSI(port);
@@ -159,11 +156,7 @@ async function createWindow() {
         },
     });
 
-    if (isDev) {
-        mainWindow.loadURL('http://localhost:3000/dashboard?s=default');
-    } else {
-        mainWindow.loadURL(`http://127.0.0.1:${port}/dashboard?s=default`);
-    }
+    mainWindow.loadURL(`http://127.0.0.1:${port}/dashboard?s=default`);
 
     // 用默认浏览器打开外部链接
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {

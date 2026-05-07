@@ -2,11 +2,6 @@ appId: com.cs2coach.app
 productName: CS2 Coach
 directories:
   output: dist
-files:
-  - out/**/*
-  - dist-electron/**/*
-  - electron/**/*
-  - package.json
 win:
   target:
     - target: nsis

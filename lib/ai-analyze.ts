@@ -84,8 +84,8 @@ export async function analyzeGameState(state: GameState): Promise<TacticalAdvice
             return null;
         }
 
-        const data = await response.json();
-        const textBlock = (data.content || []).find((c: { type: string }) => c.type === 'text');
+        const data = await response.json() as { content?: Array<{ type: string; text?: string }> };
+        const textBlock = (data.content || []).find((c) => c.type === 'text');
         const text: string = textBlock?.text || '';
         if (!text) return null;
 

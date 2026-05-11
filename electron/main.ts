@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, screen } from 'electron';
+import { app, BrowserWindow, shell, screen, ipcMain } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -8,6 +8,22 @@ import { startServer, serveStatic } from '../server/api';
 let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
 let serverClose: (() => void) | null = null;
+
+const PORT = 3456;
+
+// GSI 配置状态（通过 IPC 暴露给渲染进程）
+interface SetupStatus {
+    configWritten: boolean;
+    cfgPath: string | null;
+    cs2Running: boolean;
+    port: number;
+}
+let setupStatus: SetupStatus = {
+    configWritten: false,
+    cfgPath: null,
+    cs2Running: false,
+    port: PORT,
+};
 
 // 获取局域网 IP
 function getLocalIP(): string {
@@ -22,30 +38,53 @@ function getLocalIP(): string {
     return '127.0.0.1';
 }
 
+// 检测 CS2 是否在运行
+function isCS2Running(): boolean {
+    try {
+        if (process.platform === 'win32') {
+            const result = execSync('tasklist /FI "IMAGENAME eq cs2.exe" /NH', {
+                encoding: 'utf-8',
+                timeout: 3000,
+            });
+            return result.includes('cs2.exe');
+        } else if (process.platform === 'darwin') {
+            const result = execSync('pgrep -f "cs2" || true', {
+                encoding: 'utf-8',
+                timeout: 3000,
+            });
+            return result.trim().length > 0;
+        } else {
+            const result = execSync('pgrep -f "cs2" || true', {
+                encoding: 'utf-8',
+                timeout: 3000,
+            });
+            return result.trim().length > 0;
+        }
+    } catch {
+        return false;
+    }
+}
+
 // 检测 Steam 路径（Windows 注册表）
 function findSteamPath(): string | null {
     if (process.platform !== 'win32') {
-        // macOS / Linux
         const home = process.env.HOME || '';
         return process.platform === 'darwin'
             ? path.join(home, 'Library', 'Application Support', 'Steam')
             : path.join(home, '.steam', 'steam');
     }
 
-    // Windows: 读注册表
     try {
         const result = execSync(
-            'reg query "HKCU\\Software\\Valve\\Steam" /v SteamPath',
+            'reg query "HKCU\\Software\\Valve\\Steam" /v "SteamPath"',
             { encoding: 'utf-8', timeout: 3000 }
         );
         const match = result.match(/SteamPath\s+REG_SZ\s+(.+)/);
         if (match) {
-            // 注册表路径用 / 分隔，转成 \
             return match[1].trim().replace(/\//g, '\\');
         }
     } catch {}
 
-    // 备选：常见路径
     const candidates = [
         'C:\\Program Files (x86)\\Steam',
         'C:\\Program Files\\Steam',
@@ -61,7 +100,7 @@ function findSteamPath(): string | null {
 
 // 从 Steam libraryfolders.json 获取所有游戏库路径
 function getSteamLibraries(steamPath: string): string[] {
-    const libraries = [steamPath]; // 主库
+    const libraries = [steamPath];
 
     try {
         const foldersJson = path.join(steamPath, 'steamapps', 'libraryfolders.json');
@@ -97,7 +136,6 @@ function findCS2CfgDir(): string | null {
         if (fs.existsSync(cfgDir)) {
             return cfgDir;
         }
-        // CS2 有时在 game/csgo/cfg 或 game/csgo/cfg/legacy
         const cfgDir2 = path.join(lib, 'steamapps', 'common', 'Counter-Strike 2', 'game', 'csgo', 'cfg');
         if (fs.existsSync(cfgDir2)) {
             return cfgDir2;
@@ -107,11 +145,11 @@ function findCS2CfgDir(): string | null {
     return null;
 }
 
-// 检测 CS2 安装路径并写入 GSI 配置
-function configureCS2GSI(port: number): boolean {
+// 写入 GSI 配置（固定端口，每次启动都重写）
+function configureCS2GSI(): boolean {
     const cfgContent = `"StratLog GSI v2.0"
 {
-    "uri"           "http://127.0.0.1:${port}/api/gsi"
+    "uri"           "http://127.0.0.1:${PORT}/api/gsi"
     "timeout"       "5.0"
     "buffer"        "0.1"
     "throttle"      "0.5"
@@ -139,19 +177,23 @@ function configureCS2GSI(port: number): boolean {
         try {
             fs.writeFileSync(cfgFile, cfgContent, 'utf-8');
             console.log(`[GSI] Config written to: ${cfgFile}`);
+            setupStatus.configWritten = true;
+            setupStatus.cfgPath = cfgFile;
             return true;
         } catch (err) {
             console.error(`[GSI] Failed to write config:`, err);
+            setupStatus.configWritten = false;
             return false;
         }
     }
 
-    console.log('[GSI] CS2 not found. User needs to start CS2 after Coach.');
+    console.log('[GSI] CS2 not found.');
+    setupStatus.configWritten = false;
     return false;
 }
 
 // 创建悬浮窗
-function createOverlay(port: number) {
+function createOverlay() {
     const primaryDisplay = screen.getPrimaryDisplay();
     const { width, height } = primaryDisplay.workAreaSize;
 
@@ -173,12 +215,9 @@ function createOverlay(port: number) {
         },
     });
 
-    // 设置窗口层级最高（游戏之上）
     overlayWindow.setAlwaysOnTop(true, 'screen-saver');
     overlayWindow.setVisibleOnAllWorkspaces(true);
-
-    // 加载 overlay 页面
-    overlayWindow.loadURL(`http://127.0.0.1:${port}/overlay.html`);
+    overlayWindow.loadURL(`http://127.0.0.1:${PORT}/overlay.html`);
 
     overlayWindow.on('closed', () => {
         overlayWindow = null;
@@ -186,24 +225,36 @@ function createOverlay(port: number) {
 }
 
 async function createWindow() {
-    const isDev = !app.isPackaged;
+    // 1. 写入 GSI 配置（固定端口，每次启动都更新）
+    configureCS2GSI();
 
-    // 启动 API 服务器（局域网可访问）
-    const { port, close } = await startServer(0, true);
-    serverClose = close;
+    // 2. 检测 CS2 是否在运行
+    setupStatus.cs2Running = isCS2Running();
+    if (setupStatus.cs2Running) {
+        console.log('[GSI] CS2 is already running — user needs to restart CS2');
+    }
 
-    // 服务静态文件（__dirname 始终是 dist-electron/electron/，上两级到项目根）
+    // 3. 启动 API 服务器（固定端口，局域网可访问）
+    try {
+        const { close } = await startServer(PORT, true);
+        serverClose = close;
+    } catch (err) {
+        console.error(`[Server] Failed to start on port ${PORT}:`, err);
+        // 端口被占用时尝试杀掉占用进程（仅限自己的旧进程）
+        console.error(`[Server] Port ${PORT} may be in use. Please close other instances.`);
+    }
+
+    // 4. 服务静态文件
     const outDir = path.resolve(path.join(__dirname, '..', '..', 'out'));
     serveStatic(outDir);
 
-    // 尝试自动配置 CS2 GSI
-    configureCS2GSI(port);
+    // 5. 注册 IPC：渲染进程查询 setup 状态
+    ipcMain.handle('get-setup-status', () => setupStatus);
 
-    // 获取局域网 IP
+    // 6. 创建主窗口
     const localIP = getLocalIP();
-    const mobileUrl = `http://${localIP}:${port}/dashboard?s=default`;
+    const mobileUrl = `http://${localIP}:${PORT}/dashboard?s=default`;
 
-    // 创建主窗口
     mainWindow = new BrowserWindow({
         width: 1280,
         height: 800,
@@ -215,9 +266,8 @@ async function createWindow() {
         },
     });
 
-    mainWindow.loadURL(`http://127.0.0.1:${port}/dashboard?s=default`);
+    mainWindow.loadURL(`http://127.0.0.1:${PORT}/dashboard?s=default`);
 
-    // 用默认浏览器打开外部链接
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {
         shell.openExternal(url);
         return { action: 'deny' };
@@ -227,15 +277,17 @@ async function createWindow() {
         mainWindow = null;
     });
 
-    // 创建悬浮窗
-    createOverlay(port);
+    // 7. 创建悬浮窗
+    createOverlay();
 
-    // 输出信息
+    // 8. 输出信息
     console.log('=================================');
     console.log('  CS2 Coach 已启动');
     console.log('=================================');
-    console.log(`  本地地址: http://127.0.0.1:${port}`);
+    console.log(`  端口: ${PORT}`);
     console.log(`  手机访问: ${mobileUrl}`);
+    console.log(`  GSI 配置: ${setupStatus.configWritten ? '已写入' : '未找到 CS2'}`);
+    console.log(`  CS2 运行中: ${setupStatus.cs2Running ? '是 (需重启)' : '否'}`);
     console.log('=================================');
 }
 

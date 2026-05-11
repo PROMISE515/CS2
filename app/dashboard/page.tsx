@@ -5,6 +5,13 @@ import { useSearchParams } from 'next/navigation';
 
 type ConnectionState = 'disconnected' | 'connected' | 'in_game';
 
+interface ElectronSetupStatus {
+    configWritten: boolean;
+    cfgPath: string | null;
+    cs2Running: boolean;
+    port: number;
+}
+
 interface GameState {
     map: string;
     round: number;
@@ -35,7 +42,16 @@ function DashboardContent() {
     const sessionId = searchParams.get('s') || '';
     const [state, setState] = useState<GameState | null>(null);
     const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
+    const [setupInfo, setSetupInfo] = useState<ElectronSetupStatus | null>(null);
     const lastDataTime = useRef<number>(0);
+
+    // 获取 Electron 环境的 setup 状态
+    useEffect(() => {
+        const api = (window as unknown as { electronAPI?: { getSetupStatus?: () => Promise<ElectronSetupStatus> } }).electronAPI;
+        if (api?.getSetupStatus) {
+            api.getSetupStatus().then(setSetupInfo).catch(() => {});
+        }
+    }, []);
 
     // 断线检测定时器
     useEffect(() => {
@@ -131,24 +147,58 @@ function DashboardContent() {
                     </div>
                     <p className="text-cs-orange text-sm tracking-[0.2em] uppercase mb-3">等待 CS2 连接</p>
                     <p className="text-white/30 text-xs leading-relaxed mb-6">
-                        请确保 CS2 已启动，并且 GSI 配置文件已正确安装。
-                        进入游戏对局后，战术数据将自动显示。
+                        请确保 CS2 已启动，并进入游戏对局。
+                        战术数据将在游戏中自动显示。
                     </p>
-                    <div className="glass-panel rounded-lg p-4 text-left space-y-2">
-                        <p className="text-white/20 text-[10px] tracking-widest uppercase mb-2">检查清单</p>
-                        <div className="flex items-center gap-2 text-white/40 text-xs">
-                            <span className="material-symbols-outlined text-sm text-white/20">check_circle</span>
-                            CS2 已启动并运行
+
+                    {/* Electron 环境：显示 setup 状态 */}
+                    {setupInfo && (
+                        <div className="glass-panel rounded-lg p-4 text-left space-y-3 mb-4">
+                            <p className="text-white/20 text-[10px] tracking-widest uppercase mb-2">系统状态</p>
+                            <div className="flex items-center gap-2 text-xs">
+                                <span className={`material-symbols-outlined text-sm ${setupInfo.configWritten ? 'text-green-400' : 'text-red-400'}`}>
+                                    {setupInfo.configWritten ? 'check_circle' : 'error'}
+                                </span>
+                                <span className={setupInfo.configWritten ? 'text-green-400' : 'text-red-400'}>
+                                    {setupInfo.configWritten ? 'GSI 配置已写入' : '未找到 CS2 安装目录'}
+                                </span>
+                            </div>
+                            {setupInfo.configWritten && (
+                                <div className="flex items-center gap-2 text-xs">
+                                    <span className="material-symbols-outlined text-sm text-white/20">folder</span>
+                                    <span className="text-white/30 font-mono text-[10px] break-all">{setupInfo.cfgPath}</span>
+                                </div>
+                            )}
+                            <div className="flex items-center gap-2 text-xs">
+                                <span className={`material-symbols-outlined text-sm ${setupInfo.cs2Running ? 'text-yellow-400' : 'text-white/20'}`}>
+                                    {setupInfo.cs2Running ? 'warning' : 'radio_button_unchecked'}
+                                </span>
+                                <span className={setupInfo.cs2Running ? 'text-yellow-400' : 'text-white/30'}>
+                                    {setupInfo.cs2Running ? 'CS2 正在运行 — 请重启 CS2 以激活连接' : 'CS2 未运行'}
+                                </span>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-2 text-white/40 text-xs">
-                            <span className="material-symbols-outlined text-sm text-white/20">check_circle</span>
-                            GSI 配置文件已放入 cfg 目录
+                    )}
+
+                    {/* 非 Electron 环境：通用检查清单 */}
+                    {!setupInfo && (
+                        <div className="glass-panel rounded-lg p-4 text-left space-y-2">
+                            <p className="text-white/20 text-[10px] tracking-widest uppercase mb-2">检查清单</p>
+                            <div className="flex items-center gap-2 text-white/40 text-xs">
+                                <span className="material-symbols-outlined text-sm text-white/20">check_circle</span>
+                                CS2 已启动并运行
+                            </div>
+                            <div className="flex items-center gap-2 text-white/40 text-xs">
+                                <span className="material-symbols-outlined text-sm text-white/20">check_circle</span>
+                                GSI 配置文件已放入 cfg 目录
+                            </div>
+                            <div className="flex items-center gap-2 text-white/40 text-xs">
+                                <span className="material-symbols-outlined text-sm text-white/20">check_circle</span>
+                                已进入游戏对局（匹配/竞技）
+                            </div>
                         </div>
-                        <div className="flex items-center gap-2 text-white/40 text-xs">
-                            <span className="material-symbols-outlined text-sm text-white/20">check_circle</span>
-                            已进入游戏对局（匹配/竞技）
-                        </div>
-                    </div>
+                    )}
+
                     <p className="text-white/15 text-[10px] font-mono mt-6">Session: {sessionId}</p>
                 </div>
             </div>

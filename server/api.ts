@@ -46,8 +46,12 @@ app.post('/api/gsi', async (req, res) => {
             // 包装格式：测试脚本使用
             sessionId = req.body.sessionId;
             gsiData = req.body.gsiData;
+        } else if (req.body.provider || req.body.map || req.body.player) {
+            // CS2 原生格式但 auth 字段缺失或格式异常 → 使用默认 session
+            sessionId = 'default';
+            gsiData = req.body;
         } else {
-            return res.status(400).json({ error: 'Missing sessionId (need auth.sessionId or body.sessionId)' });
+            return res.status(400).json({ error: 'Unrecognized GSI payload format' });
         }
 
         // 心跳检测：只有 provider 没有 map 数据 → CS2 已连接但未在游戏中

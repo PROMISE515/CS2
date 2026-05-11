@@ -5,7 +5,7 @@ import { getEconomyTier, pusher } from '../lib/stratlog';
 import { analyzeGameState, shouldAnalyze } from '../lib/ai-analyze';
 import { getHistory } from '../lib/round-history';
 import { getMapKnowledge } from '../lib/maps';
-import { saveState, getState } from '../lib/state-store';
+import { saveState, getState, saveHeartbeat, getConnectionState } from '../lib/state-store';
 
 interface GSIPlayer {
     name?: string;
@@ -31,17 +31,51 @@ app.use((_req, res, next) => {
     next();
 });
 
-// POST /api/gsi — 接收 CS2 GSI 数据
+// POST /api/gsi — 接收 CS2 GSI 数据（兼容原生格式和包装格式）
 app.post('/api/gsi', async (req, res) => {
     try {
-        const { sessionId, gsiData } = req.body;
-        if (!sessionId || !gsiData) {
-            return res.status(400).json({ error: 'Missing data' });
+        let sessionId: string;
+        let gsiData: Record<string, unknown>;
+
+        // 格式检测：CS2 原生格式 vs 包装格式
+        if (req.body.auth?.sessionId) {
+            // CS2 原生格式：auth 嵌在 body 中，整个 body 就是 gsiData
+            sessionId = req.body.auth.sessionId;
+            gsiData = req.body;
+        } else if (req.body.sessionId && req.body.gsiData) {
+            // 包装格式：测试脚本使用
+            sessionId = req.body.sessionId;
+            gsiData = req.body.gsiData;
+        } else {
+            return res.status(400).json({ error: 'Missing sessionId (need auth.sessionId or body.sessionId)' });
         }
 
-        const map = gsiData.map?.name || 'de_mirage';
-        const round = gsiData.map?.round || 0;
-        const phase = gsiData.phase_countdowns?.phase || gsiData.map?.phase || 'live';
+        // 心跳检测：只有 provider 没有 map 数据 → CS2 已连接但未在游戏中
+        const isHeartbeat = gsiData.provider && !gsiData.map;
+        if (isHeartbeat) {
+            saveHeartbeat(sessionId);
+            if (pusher) {
+                try {
+                    await pusher.trigger(`session-${sessionId}`, 'connection-update', {
+                        state: 'connected',
+                        timestamp: Date.now(),
+                    });
+                } catch (err) {
+                    console.error('[Pusher] Error:', err);
+                }
+            }
+            return res.json({ success: true, type: 'heartbeat' });
+        }
+
+        // 无 map 数据也无 provider → 无效请求
+        if (!gsiData.map && !gsiData.player) {
+            return res.json({ success: true, type: 'ignored' });
+        }
+
+        const map = (gsiData.map as Record<string, unknown>)?.name as string || 'de_mirage';
+        const round = ((gsiData.map as Record<string, unknown>)?.round as number) || 0;
+        const phase = (gsiData.phase_countdowns as Record<string, unknown>)?.phase as string
+            || (gsiData.map as Record<string, unknown>)?.phase as string || 'live';
         const player = gsiData.player as GSIPlayer | undefined;
         const playerName = player?.name || 'Player';
         const team = player?.team || 'T';
@@ -66,12 +100,12 @@ app.post('/api/gsi', async (req, res) => {
         }
 
         const score = {
-            ct: gsiData.map?.team_ct?.score ?? 0,
-            t: gsiData.map?.team_t?.score ?? 0,
+            ct: ((gsiData.map as Record<string, unknown>)?.team_ct as Record<string, unknown>)?.score as number ?? 0,
+            t: ((gsiData.map as Record<string, unknown>)?.team_t as Record<string, unknown>)?.score as number ?? 0,
         };
 
         const history = getHistory(sessionId);
-        const bombPlanted = gsiData.round?.bomb === 'planted';
+        const bombPlanted = (gsiData.round as Record<string, unknown>)?.bomb === 'planted';
 
         // 回合结束 → 记录历史 + 触发 AI
         let aiAdvice = null;
@@ -132,12 +166,16 @@ app.post('/api/gsi', async (req, res) => {
         if (pusher) {
             try {
                 await pusher.trigger(`session-${sessionId}`, 'state-update', state);
+                await pusher.trigger(`session-${sessionId}`, 'connection-update', {
+                    state: 'in_game',
+                    timestamp: Date.now(),
+                });
             } catch (err) {
                 console.error('[Pusher] Error:', err);
             }
         }
 
-        res.json({ success: true });
+        res.json({ success: true, type: 'game_data' });
     } catch (error) {
         console.error('GSI Error:', error);
         res.status(500).json({ error: 'Internal Server Error' });
@@ -152,6 +190,16 @@ app.get('/api/state', (req, res) => {
     }
     const state = getState(sessionId);
     res.json({ state: state || null });
+});
+
+// GET /api/connection — 返回连接状态
+app.get('/api/connection', (req, res) => {
+    const sessionId = req.query.s as string;
+    if (!sessionId) {
+        return res.status(400).json({ error: 'Missing session ID' });
+    }
+    const conn = getConnectionState(sessionId);
+    res.json(conn);
 });
 
 // 生产环境：服务 Next.js 静态导出文件

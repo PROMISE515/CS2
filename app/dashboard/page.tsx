@@ -1,7 +1,9 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+
+type ConnectionState = 'disconnected' | 'connected' | 'in_game';
 
 interface GameState {
     map: string;
@@ -25,50 +27,162 @@ interface GameState {
     } | null;
 }
 
+// 断线超时：60 秒无数据 → 回到 disconnected
+const DISCONNECT_TIMEOUT = 60_000;
+
 function DashboardContent() {
     const searchParams = useSearchParams();
     const sessionId = searchParams.get('s') || '';
     const [state, setState] = useState<GameState | null>(null);
-    const [connected, setConnected] = useState(false);
+    const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
+    const lastDataTime = useRef<number>(0);
+
+    // 断线检测定时器
+    useEffect(() => {
+        const timer = setInterval(() => {
+            if (lastDataTime.current > 0 && Date.now() - lastDataTime.current > DISCONNECT_TIMEOUT) {
+                setConnectionState('disconnected');
+                setState(null);
+                lastDataTime.current = 0;
+            }
+        }, 5000);
+        return () => clearInterval(timer);
+    }, []);
 
     useEffect(() => {
-        // Pusher 可用时用实时推送，否则轮询
+        if (!sessionId) return;
+
+        const markConnected = () => {
+            lastDataTime.current = Date.now();
+        };
+
+        const markInGame = (data: GameState) => {
+            setState(data);
+            setConnectionState('in_game');
+            lastDataTime.current = Date.now();
+        };
+
+        // Pusher 可用时用实时推送
         if (process.env.NEXT_PUBLIC_PUSHER_KEY && process.env.NEXT_PUBLIC_PUSHER_CLUSTER) {
             import('pusher-js').then(({ default: Pusher }) => {
                 const pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
                     cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
                 });
                 const channel = pusher.subscribe(`session-${sessionId}`);
+
+                // 游戏数据更新
                 channel.bind('state-update', (data: GameState) => {
-                    setState(data);
-                    setConnected(true);
+                    markInGame(data);
+                });
+
+                // 连接状态更新（心跳）
+                channel.bind('connection-update', (data: { state: ConnectionState }) => {
+                    if (data.state === 'connected') {
+                        setConnectionState('connected');
+                        markConnected();
+                    }
                 });
             });
-        } else {
-            // 轮询模式
-            const interval = setInterval(async () => {
-                try {
-                    const res = await fetch(`/api/state?s=${sessionId}`);
-                    const data = await res.json();
-                    if (data.state) {
-                        setState(data.state);
-                        setConnected(true);
-                    }
-                } catch {}
-            }, 1000);
-            return () => clearInterval(interval);
+            return;
         }
+
+        // 轮询模式（Pusher 不可用时的降级方案）
+        const pollInterval = setInterval(async () => {
+            try {
+                // 先查连接状态
+                const connRes = await fetch(`/api/connection?s=${sessionId}`);
+                const connData = await connRes.json();
+
+                if (connData.state === 'disconnected') {
+                    setConnectionState('disconnected');
+                    return;
+                }
+
+                if (connData.state === 'connected') {
+                    setConnectionState('connected');
+                    markConnected();
+                }
+
+                if (connData.state === 'in_game') {
+                    // 有游戏数据，获取最新状态
+                    const stateRes = await fetch(`/api/state?s=${sessionId}`);
+                    const stateData = await stateRes.json();
+                    if (stateData.state) {
+                        markInGame(stateData.state);
+                    } else {
+                        setConnectionState('connected');
+                        markConnected();
+                    }
+                }
+            } catch {}
+        }, 2000);
+
+        return () => clearInterval(pollInterval);
     }, [sessionId]);
 
-    // 等待连接
+    // === 状态 A：断线 / 等待连接 ===
+    if (connectionState === 'disconnected') {
+        return (
+            <div className="hud-dashboard-layout min-h-screen flex items-center justify-center">
+                <div className="text-center max-w-md px-6">
+                    <div className="relative mx-auto mb-8 w-16 h-16">
+                        <div className="animate-spin rounded-full h-16 w-16 border-2 border-white/10 border-t-cs-orange"></div>
+                        <span className="material-symbols-outlined absolute inset-0 flex items-center justify-center text-cs-orange/50 text-2xl">radar</span>
+                    </div>
+                    <p className="text-cs-orange text-sm tracking-[0.2em] uppercase mb-3">等待 CS2 连接</p>
+                    <p className="text-white/30 text-xs leading-relaxed mb-6">
+                        请确保 CS2 已启动，并且 GSI 配置文件已正确安装。
+                        进入游戏对局后，战术数据将自动显示。
+                    </p>
+                    <div className="glass-panel rounded-lg p-4 text-left space-y-2">
+                        <p className="text-white/20 text-[10px] tracking-widest uppercase mb-2">检查清单</p>
+                        <div className="flex items-center gap-2 text-white/40 text-xs">
+                            <span className="material-symbols-outlined text-sm text-white/20">check_circle</span>
+                            CS2 已启动并运行
+                        </div>
+                        <div className="flex items-center gap-2 text-white/40 text-xs">
+                            <span className="material-symbols-outlined text-sm text-white/20">check_circle</span>
+                            GSI 配置文件已放入 cfg 目录
+                        </div>
+                        <div className="flex items-center gap-2 text-white/40 text-xs">
+                            <span className="material-symbols-outlined text-sm text-white/20">check_circle</span>
+                            已进入游戏对局（匹配/竞技）
+                        </div>
+                    </div>
+                    <p className="text-white/15 text-[10px] font-mono mt-6">Session: {sessionId}</p>
+                </div>
+            </div>
+        );
+    }
+
+    // === 状态 B：CS2 已连接，等待进入游戏 ===
+    if (connectionState === 'connected') {
+        return (
+            <div className="hud-dashboard-layout min-h-screen flex items-center justify-center">
+                <div className="text-center max-w-md px-6">
+                    <div className="relative mx-auto mb-8 w-16 h-16 flex items-center justify-center">
+                        <span className="material-symbols-outlined text-green-400 text-5xl">sports_esports</span>
+                        <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-4 w-4 bg-green-500"></span>
+                        </span>
+                    </div>
+                    <p className="text-green-400 text-sm tracking-[0.2em] uppercase mb-3">CS2 已连接</p>
+                    <p className="text-white/40 text-xs leading-relaxed mb-6">
+                        正在等待进入游戏对局...
+                    </p>
+                    <p className="text-white/50 text-sm">进入游戏后将自动显示战术数据</p>
+                    <p className="text-white/15 text-[10px] font-mono mt-6">Session: {sessionId}</p>
+                </div>
+            </div>
+        );
+    }
+
+    // === 状态 C：游戏中 ===
     if (!state) {
         return (
             <div className="hud-dashboard-layout min-h-screen flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-cs-orange mx-auto mb-6"></div>
-                    <p className="text-cs-orange text-xs tracking-[0.3em] uppercase">等待 CS2 连接...</p>
-                    <p className="text-white/30 text-[10px] mt-2 font-mono">Session: {sessionId}</p>
-                </div>
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-cs-orange"></div>
             </div>
         );
     }
@@ -220,8 +334,12 @@ function DashboardContent() {
 
             {/* 底部状态 */}
             <footer className="flex items-center justify-between px-2 text-[10px] font-mono text-white/30 uppercase tracking-widest">
-                <span className={connected ? 'text-green-500' : 'text-yellow-500'}>
-                    {connected ? '已连接' : '等待连接...'}
+                <span className="flex items-center gap-2">
+                    <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                    </span>
+                    <span className="text-green-500">游戏中</span>
                 </span>
                 <span>Session: {sessionId}</span>
             </footer>

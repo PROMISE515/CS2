@@ -18,68 +18,7 @@ export default function Home() {
         setDashboardUrl(`${window.location.origin}/dashboard?s=${id}`);
     }, []);
 
-    const downloadConnector = () => {
-        const apiUrl = typeof window !== 'undefined' ? window.location.origin : '';
-        const batContent = `@echo off
-setlocal
-echo StratLog CS2 Connector v1.0
-echo ---------------------------
-for /f "tokens=2*" %%a in ('reg query "HKEY_CURRENT_USER\\Software\\Valve\\Steam" /v "SteamPath" 2^>nul') do set "SteamPath=%%b"
-if not defined SteamPath (
-    for /f "tokens=2*" %%a in ('reg query "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Valve\\Steam" /v "InstallPath" 2^>nul') do set "SteamPath=%%b"
-)
-if not defined SteamPath (
-    echo [ERROR] Steam path not found. Please install CS2 manually.
-    pause
-    exit /b
-)
-set "CS2Path=%SteamPath%\\steamapps\\common\\Counter-Strike Global Offensive\\game\\csgo\\cfg"
-if not exist "%CS2Path%" (
-    echo [ERROR] CS2 configuration directory not found.
-    pause
-    exit /b
-)
-set "CFGFile=%CS2Path%\\gamestate_integration_stratlog.cfg"
-(
-echo "StratLog GSI v2.0"
-echo {
-echo     "uri"           "${apiUrl}/api/gsi"
-echo     "timeout"       "5.0"
-echo     "buffer"        "0.1"
-echo     "throttle"      "0.5"
-echo     "heartbeat"     "30.0"
-echo     "data"
-echo     {
-echo         "map"                   "1"
-echo         "round"                 "1"
-echo         "allplayers"            "1"
-echo         "player_id"             "1"
-echo         "player_state"          "1"
-echo         "player_weapons"        "1"
-echo         "player_match_stats"    "1"
-echo         "phase_countdowns"      "1"
-echo     }
-echo     "auth"
-echo     {
-echo         "sessionId" "${sessionId}"
-echo     }
-echo }
-) > "%CFGFile%"
-echo [SUCCESS] StratLog is now connected to CS2!
-echo [INFO] Session: ${sessionId}
-echo [INFO] Dashboard: ${dashboardUrl}
-pause`;
-        const blob = new Blob([batContent], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'stratlog_connector.bat';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    };
-
+    const GITHUB_RELEASES = 'https://github.com/PROMISE515/CS2/releases';
     const qrCodeUrl = dashboardUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(dashboardUrl)}&color=0b0f1a&bgcolor=ffffff` : '';
 
     const downloadConfig = () => {
@@ -126,8 +65,7 @@ pause`;
             <header className="fixed top-0 z-50 w-full glass-panel border-b border-white/5">
                 <div className="mx-auto max-w-[1400px] px-8 h-20 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <span className="material-symbols-outlined text-cs-orange text-3xl">radar</span>
-                        <h1 className="text-white text-2xl tracking-tighter">CS2 <span className="text-cs-orange">TACTICS</span></h1>
+                        <img src="/cs2logo.png" alt="CS2 Tactics" className="h-10" />
                     </div>
                     <nav className="hidden lg:flex items-center gap-10">
                         <a className="text-white/60 hover:text-cs-orange text-xs tracking-[0.2em] transition-all" href="/tactics">战术库</a>
@@ -168,10 +106,10 @@ pause`;
                             为现代 CS2 职业选手打造的高保真战术同步系统。利用实时 GSI 数据优化每一次转点决策与道具投掷，掌控全局经济态势。
                         </p>
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-                            <button onClick={downloadConnector} className="btn-primary w-full sm:w-auto tracking-[0.2em] text-center flex items-center justify-center gap-2">
+                            <a href={GITHUB_RELEASES} target="_blank" rel="noopener noreferrer" className="btn-primary w-full sm:w-auto tracking-[0.2em] text-center flex items-center justify-center gap-2">
                                 <span className="material-symbols-outlined">bolt</span>
-                                下载一键连接器
-                            </button>
+                                下载桌面应用
+                            </a>
                             <a href={dashboardUrl} className="btn-outline w-full sm:w-auto tracking-[0.2em] !bg-white/5 !border-white/10 !text-white hover:!bg-white/10 text-center">进入控制中心</a>
                         </div>
                     </div>
@@ -224,7 +162,7 @@ pause`;
                         <div className="glass-panel p-8 mb-12 max-w-sm mx-auto border-cs-orange/20">
                             <p className="text-cs-orange text-xs tracking-[0.4em] uppercase mb-6 text-center">手机扫码同步</p>
                             <div className="bg-white rounded-xl p-4 mb-6 shadow-[0_0_30px_rgba(255,122,0,0.2)] mx-auto w-fit">
-                                <img src={qrCodeUrl} alt="Dashboard QR Code" className="w-48 h-48" />
+                                {qrCodeUrl && <img src={qrCodeUrl} alt="Dashboard QR Code" className="w-48 h-48" />}
                             </div>
                             <div className="bg-white/5 p-4 rounded-lg mb-6 border border-white/5">
                                 <code className="text-white font-technical text-[10px] break-all">{dashboardUrl}</code>
@@ -267,10 +205,10 @@ pause`;
                             <div className="relative z-10">
                                 <h2 className="text-white text-5xl md:text-7xl mb-8 italic">下载中心</h2>
                                 <p className="text-slate-400 text-lg mb-14 max-w-xl mx-auto">部署轻量级配置助手，将您的本地游戏数据与 CS2 Tactics 云端决策引擎无缝对接。</p>
-                                <button onClick={downloadConnector} className="btn-primary flex items-center gap-3 mx-auto mb-20 px-12 py-6 text-xl">
+                                <a href={GITHUB_RELEASES} target="_blank" rel="noopener noreferrer" className="btn-primary flex items-center gap-3 mx-auto mb-20 px-12 py-6 text-xl">
                                     <span className="material-symbols-outlined">bolt</span>
-                                    立即下载一键连接器 (Windows)
-                                </button>
+                                    立即下载桌面应用 (Windows)
+                                </a>
                                 <div className="text-left border-t border-white/10 pt-16">
                                     <h3 className="text-white text-xl mb-12 flex items-center gap-4">
                                         <span className="w-12 h-1 bg-cs-orange"></span>
@@ -305,8 +243,7 @@ pause`;
                 <div className="mx-auto max-w-[1400px]">
                     <div className="flex flex-col md:flex-row justify-between items-center gap-12">
                         <div className="flex items-center gap-3">
-                            <span className="material-symbols-outlined text-cs-orange text-2xl">radar</span>
-                            <h2 className="text-white text-lg tracking-tighter">CS2 <span className="text-cs-orange">TACTICS</span></h2>
+                            <img src="/cs2logo.png" alt="CS2 Tactics" className="h-8" />
                         </div>
                         <div className="flex flex-wrap justify-center gap-10 text-slate-500 text-[10px] tracking-[0.4em] uppercase">
                             <a className="hover:text-cs-orange transition-colors" href="#">系统状态</a>

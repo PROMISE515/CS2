@@ -72,8 +72,7 @@ export default function TacticsPage() {
             <header className="fixed top-0 z-50 w-full glass-panel border-b border-white/5">
                 <div className="mx-auto max-w-[1400px] px-8 h-20 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <span className="material-symbols-outlined text-cs-orange text-3xl">radar</span>
-                        <a href="/" className="text-white text-2xl tracking-tighter">CS2 <span className="text-cs-orange">TACTICS</span></a>
+                        <img src="/cs2logo.png" alt="CS2 Tactics" className="h-10" />
                     </div>
                     <nav className="hidden lg:flex items-center gap-10">
                         <a className="text-cs-orange text-xs tracking-[0.2em] transition-all border-b border-cs-orange pb-1" href="/tactics">战术库</a>
@@ -147,8 +146,7 @@ export default function TacticsPage() {
                 <div className="mx-auto max-w-[1400px]">
                     <div className="flex flex-col md:flex-row justify-between items-center gap-12">
                         <div className="flex items-center gap-3">
-                            <span className="material-symbols-outlined text-cs-orange text-2xl">radar</span>
-                            <h2 className="text-white text-lg tracking-tighter">CS2 <span className="text-cs-orange">TACTICS</span></h2>
+                            <img src="/cs2logo.png" alt="CS2 Tactics" className="h-8" />
                         </div>
                         <div className="flex flex-wrap justify-center gap-10 text-slate-500 text-[10px] tracking-[0.4em] uppercase font-technical">
                             <a className="hover:text-cs-orange transition-colors" href="#">系统状态</a>

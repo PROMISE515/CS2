@@ -5,11 +5,21 @@ import { useSearchParams } from 'next/navigation';
 
 type ConnectionState = 'disconnected' | 'connected' | 'in_game';
 
+interface DiagnosticEntry {
+    step: string;
+    path: string;
+    success: boolean;
+    error?: string;
+}
+
 interface ElectronSetupStatus {
     configWritten: boolean;
     cfgPath: string | null;
     cs2Running: boolean;
+    cs2RestartRequired: boolean;
     port: number;
+    serverError: string | null;
+    diagnostics: DiagnosticEntry[];
 }
 
 interface GameState {
@@ -37,12 +47,21 @@ interface GameState {
 // 断线超时：60 秒无数据 → 回到 disconnected
 const DISCONNECT_TIMEOUT = 60_000;
 
+interface HealthStatus {
+    serverRunning: boolean;
+    connection: { state: ConnectionState; lastSeen: number };
+    lastGsiReceived: number | null;
+    gsiReceivedCount: number;
+}
+
 function DashboardContent() {
     const searchParams = useSearchParams();
     const sessionId = searchParams.get('s') || '';
     const [state, setState] = useState<GameState | null>(null);
     const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
     const [setupInfo, setSetupInfo] = useState<ElectronSetupStatus | null>(null);
+    const [health, setHealth] = useState<HealthStatus | null>(null);
+    const [disconnectSince, setDisconnectSince] = useState<number>(Date.now());
     const lastDataTime = useRef<number>(0);
 
     // 获取 Electron 环境的 setup 状态
@@ -53,12 +72,34 @@ function DashboardContent() {
         }
     }, []);
 
+    // 断线时轮询健康状态
+    useEffect(() => {
+        if (connectionState !== 'disconnected' || !sessionId) return;
+
+        const poll = setInterval(async () => {
+            try {
+                const res = await fetch(`/api/gsi/health?s=${sessionId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setHealth(data);
+                } else {
+                    setHealth(null);
+                }
+            } catch {
+                setHealth(null);
+            }
+        }, 3000);
+
+        return () => clearInterval(poll);
+    }, [connectionState, sessionId]);
+
     // 断线检测定时器
     useEffect(() => {
         const timer = setInterval(() => {
             if (lastDataTime.current > 0 && Date.now() - lastDataTime.current > DISCONNECT_TIMEOUT) {
                 setConnectionState('disconnected');
                 setState(null);
+                setDisconnectSince(Date.now());
                 lastDataTime.current = 0;
             }
         }, 5000);
@@ -138,6 +179,8 @@ function DashboardContent() {
 
     // === 状态 A：断线 / 等待连接 ===
     if (connectionState === 'disconnected') {
+        const waitSeconds = Math.floor((Date.now() - disconnectSince) / 1000);
+
         return (
             <div className="hud-dashboard-layout min-h-screen flex items-center justify-center">
                 <div className="text-center max-w-md px-6">
@@ -151,10 +194,23 @@ function DashboardContent() {
                         战术数据将在游戏中自动显示。
                     </p>
 
+                    {/* 端口错误 */}
+                    {setupInfo?.serverError && (
+                        <div className="glass-panel rounded-lg p-4 border border-red-500/30 bg-red-500/5 text-left mb-4">
+                            <div className="flex items-center gap-2 mb-2">
+                                <span className="material-symbols-outlined text-red-400 text-sm">error</span>
+                                <span className="text-red-400 text-xs font-bold">服务器启动失败</span>
+                            </div>
+                            <p className="text-white/40 text-xs">{setupInfo.serverError}</p>
+                        </div>
+                    )}
+
                     {/* Electron 环境：显示 setup 状态 */}
-                    {setupInfo && (
+                    {setupInfo && !setupInfo.serverError && (
                         <div className="glass-panel rounded-lg p-4 text-left space-y-3 mb-4">
                             <p className="text-white/20 text-[10px] tracking-widest uppercase mb-2">系统状态</p>
+
+                            {/* GSI 配置状态 */}
                             <div className="flex items-center gap-2 text-xs">
                                 <span className={`material-symbols-outlined text-sm ${setupInfo.configWritten ? 'text-green-400' : 'text-red-400'}`}>
                                     {setupInfo.configWritten ? 'check_circle' : 'error'}
@@ -169,24 +225,63 @@ function DashboardContent() {
                                     <span className="text-white/30 font-mono text-[10px] break-all">{setupInfo.cfgPath}</span>
                                 </div>
                             )}
+
+                            {/* CS2 运行状态 */}
                             <div className="flex items-center gap-2 text-xs">
-                                <span className={`material-symbols-outlined text-sm ${setupInfo.cs2Running ? 'text-yellow-400' : 'text-white/20'}`}>
-                                    {setupInfo.cs2Running ? 'warning' : 'radio_button_unchecked'}
+                                <span className={`material-symbols-outlined text-sm ${setupInfo.cs2RestartRequired ? 'text-yellow-400' : setupInfo.cs2Running ? 'text-green-400' : 'text-white/20'}`}>
+                                    {setupInfo.cs2RestartRequired ? 'warning' : setupInfo.cs2Running ? 'check_circle' : 'radio_button_unchecked'}
                                 </span>
-                                <span className={setupInfo.cs2Running ? 'text-yellow-400' : 'text-white/30'}>
-                                    {setupInfo.cs2Running ? 'CS2 正在运行 — 请重启 CS2 以激活连接' : 'CS2 未运行'}
+                                <span className={setupInfo.cs2RestartRequired ? 'text-yellow-400' : setupInfo.cs2Running ? 'text-green-400' : 'text-white/30'}>
+                                    {setupInfo.cs2RestartRequired
+                                        ? 'CS2 正在运行 — 请重启 CS2 以激活连接'
+                                        : setupInfo.cs2Running
+                                            ? 'CS2 运行中，等待游戏数据...'
+                                            : 'CS2 未运行'}
                                 </span>
                             </div>
+                            {setupInfo.cs2RestartRequired && (
+                                <div className="rounded bg-yellow-400/10 border border-yellow-400/20 px-3 py-2 text-xs text-yellow-400 animate-pulse">
+                                    请关闭 CS2 并重新启动，GSI 配置需要重启才能生效
+                                </div>
+                            )}
+
+                            {/* 诊断信息（configWritten 为 false 时显示） */}
+                            {!setupInfo.configWritten && setupInfo.diagnostics.length > 0 && (
+                                <div className="mt-2 pt-2 border-t border-white/10">
+                                    <p className="text-white/20 text-[10px] tracking-widest uppercase mb-2">检测路径</p>
+                                    <div className="space-y-1">
+                                        {setupInfo.diagnostics.map((d, i) => (
+                                            <div key={i} className="flex items-start gap-2 text-[10px]">
+                                                <span className={`material-symbols-outlined text-[12px] mt-0.5 ${d.success ? 'text-green-400' : 'text-white/20'}`}>
+                                                    {d.success ? 'check_circle' : 'radio_button_unchecked'}
+                                                </span>
+                                                <span className="text-white/30 font-mono break-all">{d.path}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <p className="text-white/20 text-[10px] mt-2">
+                                        如果 CS2 已安装但未检测到，请手动将 GSI 配置文件放入 CS2 的 cfg 目录
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     )}
 
-                    {/* 非 Electron 环境：通用检查清单 */}
+                    {/* 非 Electron 环境：健康状态 + 诊断 */}
                     {!setupInfo && (
-                        <div className="glass-panel rounded-lg p-4 text-left space-y-2">
+                        <div className="glass-panel rounded-lg p-4 text-left space-y-2 mb-4">
                             <p className="text-white/20 text-[10px] tracking-widest uppercase mb-2">检查清单</p>
                             <div className="flex items-center gap-2 text-white/40 text-xs">
-                                <span className="material-symbols-outlined text-sm text-white/20">check_circle</span>
-                                CS2 已启动并运行
+                                <span className={`material-symbols-outlined text-sm ${health?.serverRunning ? 'text-green-400' : 'text-white/20'}`}>
+                                    {health?.serverRunning ? 'check_circle' : 'radio_button_unchecked'}
+                                </span>
+                                服务器运行中
+                            </div>
+                            <div className="flex items-center gap-2 text-white/40 text-xs">
+                                <span className={`material-symbols-outlined text-sm ${(health?.gsiReceivedCount ?? 0) > 0 ? 'text-green-400' : 'text-white/20'}`}>
+                                    {(health?.gsiReceivedCount ?? 0) > 0 ? 'check_circle' : 'radio_button_unchecked'}
+                                </span>
+                                CS2 已发送数据
                             </div>
                             <div className="flex items-center gap-2 text-white/40 text-xs">
                                 <span className="material-symbols-outlined text-sm text-white/20">check_circle</span>
@@ -196,6 +291,28 @@ function DashboardContent() {
                                 <span className="material-symbols-outlined text-sm text-white/20">check_circle</span>
                                 已进入游戏对局（匹配/竞技）
                             </div>
+
+                            {/* 渐进式诊断提示 */}
+                            {waitSeconds > 10 && (
+                                <div className="mt-2 pt-2 border-t border-white/10">
+                                    {health === null ? (
+                                        <p className="text-yellow-400 text-xs">
+                                            <span className="material-symbols-outlined text-sm align-middle mr-1">warning</span>
+                                            无法连接服务器，请确认 CS2 Coach 正在运行
+                                        </p>
+                                    ) : health.serverRunning && health.gsiReceivedCount === 0 ? (
+                                        <p className="text-yellow-400 text-xs">
+                                            <span className="material-symbols-outlined text-sm align-middle mr-1">info</span>
+                                            服务器正常，但 CS2 尚未发送数据。请确认 GSI 配置文件位置正确并重启 CS2。
+                                        </p>
+                                    ) : health.gsiReceivedCount > 0 && health.connection.state === 'disconnected' ? (
+                                        <p className="text-blue-400 text-xs">
+                                            <span className="material-symbols-outlined text-sm align-middle mr-1">info</span>
+                                            CS2 之前发送过数据但已停止。可能已退出游戏。
+                                        </p>
+                                    ) : null}
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -248,7 +365,7 @@ function DashboardContent() {
             {/* 顶部状态栏 */}
             <header className="glass-panel rounded-xl p-4 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <span className="material-symbols-outlined text-cs-orange text-2xl">radar</span>
+                    <img src="/cs2logo.png" alt="CS2 Tactics" className="h-8" />
                     <div>
                         <h1 className="text-white text-lg font-bold tracking-tight">CS2 AI 教练</h1>
                         <p className="text-white/40 text-[10px] font-mono">{state.map.toUpperCase()} | 第{state.round}回合</p>

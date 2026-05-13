@@ -31,6 +31,10 @@ app.use((_req, res, next) => {
     next();
 });
 
+// GSI 请求追踪
+const gsiRequestLog = new Map<string, number>();
+const gsiRequestCounts = new Map<string, number>();
+
 // POST /api/gsi — 接收 CS2 GSI 数据（兼容原生格式和包装格式）
 app.post('/api/gsi', async (req, res) => {
     try {
@@ -42,21 +46,31 @@ app.post('/api/gsi', async (req, res) => {
             // CS2 原生格式：auth 嵌在 body 中，整个 body 就是 gsiData
             sessionId = req.body.auth.sessionId;
             gsiData = req.body;
+            console.log(`[GSI] 收到原生格式请求, session: ${sessionId}`);
         } else if (req.body.sessionId && req.body.gsiData) {
             // 包装格式：测试脚本使用
             sessionId = req.body.sessionId;
             gsiData = req.body.gsiData;
+            console.log(`[GSI] 收到包装格式请求, session: ${sessionId}`);
         } else if (req.body.provider || req.body.map || req.body.player) {
             // CS2 原生格式但 auth 字段缺失或格式异常 → 使用默认 session
             sessionId = 'default';
             gsiData = req.body;
+            console.log(`[GSI] 收到原生格式请求(无auth), session: default`);
         } else {
+            console.warn('[GSI] 收到无法识别的请求格式:', JSON.stringify(Object.keys(req.body)));
             return res.status(400).json({ error: 'Unrecognized GSI payload format' });
         }
+
+        // 追踪 GSI 请求
+        const count = (gsiRequestCounts.get(sessionId) ?? 0) + 1;
+        gsiRequestLog.set(sessionId, Date.now());
+        gsiRequestCounts.set(sessionId, count);
 
         // 心跳检测：只有 provider 没有 map 数据 → CS2 已连接但未在游戏中
         const isHeartbeat = gsiData.provider && !gsiData.map;
         if (isHeartbeat) {
+            console.log(`[GSI] 心跳 #${count}, session: ${sessionId}`);
             saveHeartbeat(sessionId);
             if (pusher) {
                 try {
@@ -65,7 +79,7 @@ app.post('/api/gsi', async (req, res) => {
                         timestamp: Date.now(),
                     });
                 } catch (err) {
-                    console.error('[Pusher] Error:', err);
+                    console.error('[Pusher] 心跳推送失败:', err);
                 }
             }
             return res.json({ success: true, type: 'heartbeat' });
@@ -73,6 +87,7 @@ app.post('/api/gsi', async (req, res) => {
 
         // 无 map 数据也无 provider → 无效请求
         if (!gsiData.map && !gsiData.player) {
+            console.log(`[GSI] 忽略无效请求 #${count}, session: ${sessionId}`);
             return res.json({ success: true, type: 'ignored' });
         }
 
@@ -86,6 +101,8 @@ app.post('/api/gsi', async (req, res) => {
         const health = player?.state?.health ?? 0;
         const money = parseMoney(player?.state?.money);
         const ecoTier = getEconomyTier(money);
+
+        console.log(`[GSI] 游戏数据 #${count}: ${map} R${round} ${phase} | ${playerName} ${team} ${health}HP $${money} ${ecoTier}`);
 
         // 统计存活人数
         let ctAlive = 0, tAlive = 0;
@@ -127,6 +144,7 @@ app.post('/api/gsi', async (req, res) => {
                 bombPlanted,
             });
 
+            console.log(`[AI] 触发 AI 分析: ${map} R${round} ${phase} | CT ${score.ct}:${score.t} T`);
             aiAdvice = await analyzeGameState({
                 map,
                 round,
@@ -145,6 +163,12 @@ app.post('/api/gsi', async (req, res) => {
                 roundHistory: history.getSummary(playerName),
                 mapKnowledge: getMapKnowledge(map),
             });
+
+            if (aiAdvice) {
+                console.log(`[AI] ✓ 分析完成: ${aiAdvice.situation} | ${aiAdvice.command} | 紧迫度: ${aiAdvice.urgency}`);
+            } else {
+                console.log('[AI] 分析返回 null (可能未配置 MIMO_API_KEY)');
+            }
         }
 
         const state = {
@@ -165,6 +189,7 @@ app.post('/api/gsi', async (req, res) => {
         };
 
         saveState(sessionId, state);
+        console.log(`[GSI] ✓ 状态已保存, session: ${sessionId}, 数据: ${JSON.stringify({map, round, phase, team, economy: ecoTier})}`);
 
         // Pusher 云端同步（手机可远程接收）
         if (pusher) {
@@ -174,14 +199,18 @@ app.post('/api/gsi', async (req, res) => {
                     state: 'in_game',
                     timestamp: Date.now(),
                 });
+                console.log(`[Pusher] ✓ 事件已推送, channel: session-${sessionId}`);
             } catch (err) {
-                console.error('[Pusher] Error:', err);
+                console.error('[Pusher] ✗ 推送失败:', err);
             }
+        } else {
+            console.log('[Pusher] 未配置，跳过推送');
         }
 
         res.json({ success: true, type: 'game_data' });
     } catch (error) {
-        console.error('GSI Error:', error);
+        console.error('[GSI] ✗ 处理请求时出错:', error);
+        console.error('[GSI]   请求体:', JSON.stringify(req.body).substring(0, 500));
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
@@ -204,6 +233,27 @@ app.get('/api/connection', (req, res) => {
     }
     const conn = getConnectionState(sessionId);
     res.json(conn);
+});
+
+// GET /api/gsi/health — GSI 连接健康检查
+app.get('/api/gsi/health', (req, res) => {
+    const sessionId = req.query.s as string;
+    if (!sessionId) {
+        return res.status(400).json({ error: 'Missing session ID' });
+    }
+    const conn = getConnectionState(sessionId);
+    const lastGsi = gsiRequestLog.get(sessionId) ?? null;
+    const gsiCount = gsiRequestCounts.get(sessionId) ?? 0;
+
+    console.log(`[Health] session: ${sessionId}, state: ${conn.state}, gsi_count: ${gsiCount}, last_gsi: ${lastGsi ? new Date(lastGsi).toISOString() : 'never'}`);
+
+    res.json({
+        serverRunning: true,
+        session: sessionId,
+        connection: conn,
+        lastGsiReceived: lastGsi,
+        gsiReceivedCount: gsiCount,
+    });
 });
 
 // 生产环境：服务 Next.js 静态导出文件
@@ -234,7 +284,7 @@ function serveStatic(outDir: string) {
 
 function startServer(port: number = 0, publicAccess: boolean = false): Promise<{ port: number; close: () => void }> {
     const host = publicAccess ? '0.0.0.0' : '127.0.0.1';
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
         const server = app.listen(port, host, () => {
             const addr = server.address();
             const actualPort = typeof addr === 'object' && addr ? addr.port : port;
@@ -243,6 +293,13 @@ function startServer(port: number = 0, publicAccess: boolean = false): Promise<{
                 port: actualPort,
                 close: () => server.close(),
             });
+        });
+        server.on('error', (err: NodeJS.ErrnoException) => {
+            if (err.code === 'EADDRINUSE') {
+                reject(new Error(`Port ${port} is already in use`));
+            } else {
+                reject(err);
+            }
         });
     });
 }

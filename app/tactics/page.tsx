@@ -76,13 +76,17 @@ export default function TacticsPage() {
                     </div>
                     <nav className="hidden lg:flex items-center gap-10">
                         <a className="text-cs-orange text-xs tracking-[0.2em] transition-all border-b border-cs-orange pb-1" href="/tactics">战术库</a>
-                        <a className="text-white/60 hover:text-cs-orange text-xs tracking-[0.2em] transition-all" href="/dashboard">决策中心</a>
                         <a className="text-white/60 hover:text-cs-orange text-xs tracking-[0.2em] transition-all" href="/leaderboard">排行榜</a>
                         <a className="text-white/60 hover:text-cs-orange text-xs tracking-[0.2em] transition-all" href="/changelog">开发日志</a>
                     </nav>
                     <div className="flex items-center gap-6">
-                        <button className="text-white/60 text-xs tracking-widest hover:text-white transition-colors">登录系统</button>
-                        <button className="btn-outline !py-2 !px-5 !text-xs tracking-widest uppercase">建立连接</button>
+                        <div className="flex items-center gap-1 text-xs tracking-widest">
+                            <button className="text-cs-orange transition-colors">中</button>
+                            <span className="text-white/20">/</span>
+                            <button className="text-white/40 hover:text-white transition-colors">EN</button>
+                            <span className="text-white/20">/</span>
+                            <button className="text-white/40 hover:text-white transition-colors">RU</button>
+                        </div>
                     </div>
                 </div>
             </header>

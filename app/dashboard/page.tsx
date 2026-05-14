@@ -26,12 +26,14 @@ interface GameState {
     map: string;
     round: number;
     phase: string;
+    phaseEndsIn: number;
     team: string;
     economy: string;
     playerName: string;
     health: number;
     money: number;
     aliveCount: { ct: number; t: number };
+    economyTotal: { ct: number; t: number };
     score: { ct: number; t: number };
     bombPlanted: boolean;
     kills: number;
@@ -368,8 +370,12 @@ function DashboardContent() {
                     <img src="/cs2logo.png" alt="CS2 Tactics" className="h-8" />
                     <div>
                         <h1 className="text-white text-lg font-bold tracking-tight">CS2 AI 教练</h1>
-                        <p className="text-white/40 text-[10px] font-mono">{state.map.toUpperCase()} | 第{state.round}回合</p>
+                        <p className="text-white/40 text-[10px] font-mono">第{state.round}回合</p>
                     </div>
+                </div>
+                <div className="text-center">
+                    <p className="text-white text-sm font-bold font-mono tracking-wider">{state.map.toUpperCase()}</p>
+                    <p className="text-white/40 text-[10px] tracking-widest">当前地图</p>
                 </div>
                 <div className="flex items-center gap-6">
                     <div className="text-center">
@@ -379,9 +385,6 @@ function DashboardContent() {
                     <div className="text-center">
                         <p className="text-[10px] text-white/40 tracking-widest uppercase">经济</p>
                         <p className={`text-sm font-bold font-mono ${state.economy === 'FULL_BUY' ? 'text-green-400' : state.economy === 'ECO' ? 'text-red-400' : 'text-yellow-400'}`}>{state.economy}</p>
-                    </div>
-                    <div className={`px-3 py-1 rounded text-[10px] font-bold tracking-widest uppercase border ${isFreezetime ? 'border-cs-orange text-cs-orange bg-cs-orange/10' : 'border-white/20 text-white/50'}`}>
-                        {isFreezetime ? '买枪期' : '对枪中'}
                     </div>
                 </div>
             </header>
@@ -428,12 +431,52 @@ function DashboardContent() {
                         </div>
                     </div>
 
+                    {/* 回合倒计时 */}
+                    <div className="glass-panel rounded-xl p-5">
+                        <p className="text-[10px] text-cs-orange tracking-widest uppercase mb-3">
+                            {state.bombPlanted ? '炸弹倒计时' : '回合倒计时'}
+                        </p>
+                        <div className="text-center">
+                            <p className={`text-4xl font-bold font-mono ${state.bombPlanted ? 'text-red-400' : state.phaseEndsIn <= 10 ? 'text-yellow-400' : 'text-white'}`}>
+                                {state.bombPlanted ? Math.max(0, 40 - Math.round((Date.now() % 40000) / 1000)) : Math.round(state.phaseEndsIn)}
+                            </p>
+                            <p className="text-white/40 text-[10px] tracking-widest mt-1">
+                                {state.bombPlanted ? '秒后爆炸' : state.phase === 'freezetime' ? '买枪期剩余' : '回合剩余'}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* 双方经济对比 */}
+                    <div className="glass-panel rounded-xl p-5">
+                        <p className="text-[10px] text-cs-orange tracking-widest uppercase mb-3">经济对比</p>
+                        <div className="space-y-3">
+                            <div>
+                                <div className="flex justify-between mb-1">
+                                    <span className="text-blue-400 text-xs">CT</span>
+                                    <span className="text-white font-mono text-xs">${state.economyTotal.ct.toLocaleString()}</span>
+                                </div>
+                                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                    <div className="h-full bg-blue-400 rounded-full" style={{ width: `${state.economyTotal.ct + state.economyTotal.t > 0 ? (state.economyTotal.ct / (state.economyTotal.ct + state.economyTotal.t)) * 100 : 50}%` }}></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div className="flex justify-between mb-1">
+                                    <span className="text-yellow-400 text-xs">T</span>
+                                    <span className="text-white font-mono text-xs">${state.economyTotal.t.toLocaleString()}</span>
+                                </div>
+                                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                    <div className="h-full bg-yellow-400 rounded-full" style={{ width: `${state.economyTotal.ct + state.economyTotal.t > 0 ? (state.economyTotal.t / (state.economyTotal.ct + state.economyTotal.t)) * 100 : 50}%` }}></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* 炸弹状态 */}
                     {state.bombPlanted && (
                         <div className="glass-panel rounded-xl p-4 border border-red-500/30 bg-red-500/5">
                             <div className="flex items-center gap-2">
-                                <span className="material-symbols-outlined text-red-400">warning</span>
-                                <p className="text-red-400 text-sm font-bold tracking-widest uppercase">炸弹已放置</p>
+                                <span className="material-symbols-outlined text-red-400 animate-pulse">warning</span>
+                                <p className="text-red-400 text-sm font-bold tracking-widest uppercase">C4 已安放</p>
                             </div>
                         </div>
                     )}

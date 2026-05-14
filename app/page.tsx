@@ -69,13 +69,17 @@ export default function Home() {
                     </div>
                     <nav className="hidden lg:flex items-center gap-10">
                         <a className="text-white/60 hover:text-cs-orange text-xs tracking-[0.2em] transition-all" href="/tactics">战术库</a>
-                        <a className="text-white/60 hover:text-cs-orange text-xs tracking-[0.2em] transition-all" href="/dashboard">决策中心</a>
                         <a className="text-white/60 hover:text-cs-orange text-xs tracking-[0.2em] transition-all" href="/leaderboard">排行榜</a>
                         <a className="text-white/60 hover:text-cs-orange text-xs tracking-[0.2em] transition-all" href="/changelog">开发日志</a>
                     </nav>
                     <div className="flex items-center gap-6">
-                        <button className="text-white/60 text-xs tracking-widest hover:text-white transition-colors">登录系统</button>
-                        <a href={dashboardUrl} className="btn-outline !py-2 !px-5 !text-xs tracking-widest flex items-center">建立连接</a>
+                        <div className="flex items-center gap-1 text-xs tracking-widest">
+                            <button className="text-cs-orange transition-colors">中</button>
+                            <span className="text-white/20">/</span>
+                            <button className="text-white/40 hover:text-white transition-colors">EN</button>
+                            <span className="text-white/20">/</span>
+                            <button className="text-white/40 hover:text-white transition-colors">RU</button>
+                        </div>
                     </div>
                 </div>
             </header>
@@ -103,14 +107,13 @@ export default function Home() {
                             <span className="text-cs-orange italic">主宰信息态战场</span>
                         </h1>
                         <p className="text-slate-400 text-lg md:text-xl max-w-[850px] mx-auto mb-14 tracking-wide leading-relaxed">
-                            为现代 CS2 职业选手打造的高保真战术同步系统。利用实时 GSI 数据优化每一次转点决策与道具投掷，掌控全局经济态势。
+                            为 CS2 玩家打造的高保真战术同步系统。利用实时 GSI 数据优化每一次转点决策与道具投掷，掌控全局经济态势（非外挂）
                         </p>
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
                             <a href={GITHUB_RELEASES} target="_blank" rel="noopener noreferrer" className="btn-primary w-full sm:w-auto tracking-[0.2em] text-center flex items-center justify-center gap-2">
                                 <span className="material-symbols-outlined">bolt</span>
                                 下载桌面应用
                             </a>
-                            <a href={dashboardUrl} className="btn-outline w-full sm:w-auto tracking-[0.2em] !bg-white/5 !border-white/10 !text-white hover:!bg-white/10 text-center">进入控制中心</a>
                         </div>
                     </div>
                 </section>
@@ -160,7 +163,7 @@ export default function Home() {
                         </div>
 
                         <div className="glass-panel p-8 mb-12 max-w-sm mx-auto border-cs-orange/20">
-                            <p className="text-cs-orange text-xs tracking-[0.4em] uppercase mb-6 text-center">手机扫码同步</p>
+                            <p className="text-cs-orange text-xs tracking-[0.4em] uppercase mb-6 text-center">手机扫码同步（同一网络下）</p>
                             <div className="bg-white rounded-xl p-4 mb-6 shadow-[0_0_30px_rgba(255,122,0,0.2)] mx-auto w-fit">
                                 {qrCodeUrl && <img src={qrCodeUrl} alt="Dashboard QR Code" className="w-48 h-48" />}
                             </div>
@@ -246,17 +249,11 @@ export default function Home() {
                             <img src="/cs2logo.png" alt="CS2 Tactics" className="h-8" />
                         </div>
                         <div className="flex flex-wrap justify-center gap-10 text-slate-500 text-[10px] tracking-[0.4em] uppercase">
-                            <a className="hover:text-cs-orange transition-colors" href="#">系统状态</a>
-                            <a className="hover:text-cs-orange transition-colors" href="#">安全文档</a>
-                            <a className="hover:text-cs-orange transition-colors" href="#">API 接口</a>
-                            <a className="hover:text-cs-orange transition-colors" href="#">全球网络</a>
+                          © 2026 CS Tactics Intelligence. 为竞技巅峰而生.
                         </div>
                         <div className="text-slate-600 text-[10px] tracking-widest font-technical">
                             VER 4.2.0_STABLE // BUILD_2026.01
                         </div>
-                    </div>
-                    <div className="mt-12 pt-8 border-t border-white/5 text-center text-slate-600 text-[10px] tracking-[0.3em] uppercase">
-                        © 2026 CS2 Tactics Intelligence. 为竞技巅峰而生.
                     </div>
                 </div>
             </footer>

@@ -116,9 +116,8 @@
     <div class="overlay" id="overlay">
         <button class="close-btn" onclick="window.electronAPI?.close()">×</button>
         <div class="header">
-            <span class="dot"></span>
-            <span>CS2 Coach</span>
-            <span id="phase"></span>
+            <img src="/cs2logo.png" alt="" style="width:14px;height:14px;">
+            <span id="map">-</span>
         </div>
         <div class="score">
             <span class="score-num score-ct" id="ct-score">0</span>
@@ -128,6 +127,10 @@
         <div class="info-row">
             <span class="info-label">回合</span>
             <span class="info-value" id="round">-</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">金钱</span>
+            <span class="info-value" id="money">-$</span>
         </div>
         <div class="info-row">
             <span class="info-label">经济</span>
@@ -160,9 +163,10 @@
             document.getElementById('t-score').textContent = s.score?.t ?? 0;
             document.getElementById('round').textContent = `第${s.round || '-'}回合`;
             document.getElementById('alive').textContent = `CT ${s.aliveCount?.ct ?? 0} / T ${s.aliveCount?.t ?? 0}`;
+            document.getElementById('map').textContent = (s.map || '-').toUpperCase();
 
-            const phase = s.phase === 'freezetime' ? '买枪期' : '对枪中';
-            document.getElementById('phase').textContent = phase;
+            const moneyEl = document.getElementById('money');
+            moneyEl.textContent = `$${(s.money ?? 0).toLocaleString()}`;
 
             const ecoEl = document.getElementById('economy');
             ecoEl.textContent = s.economy || '-';

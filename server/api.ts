@@ -95,6 +95,7 @@ app.post('/api/gsi', async (req, res) => {
         const round = ((gsiData.map as Record<string, unknown>)?.round as number) || 0;
         const phase = (gsiData.phase_countdowns as Record<string, unknown>)?.phase as string
             || (gsiData.map as Record<string, unknown>)?.phase as string || 'live';
+        const phaseEndsIn = parseFloat((gsiData.phase_countdowns as Record<string, unknown>)?.phase_ends_in as string) || 0;
         const player = gsiData.player as GSIPlayer | undefined;
         const playerName = player?.name || 'Player';
         const team = player?.team || 'T';
@@ -102,21 +103,31 @@ app.post('/api/gsi', async (req, res) => {
         const money = parseMoney(player?.state?.money);
         const ecoTier = getEconomyTier(money);
 
-        console.log(`[GSI] 游戏数据 #${count}: ${map} R${round} ${phase} | ${playerName} ${team} ${health}HP $${money} ${ecoTier}`);
+        console.log(`[GSI] 游戏数据 #${count}: ${map} R${round} ${phase} (${phaseEndsIn}s) | ${playerName} ${team} ${health}HP $${money} ${ecoTier}`);
 
-        // 统计存活人数
+        // 统计存活人数 + 双方经济
         let ctAlive = 0, tAlive = 0;
+        let ctEconomy = 0, tEconomy = 0;
         if (gsiData.allplayers) {
-            for (const p of Object.values(gsiData.allplayers) as GSIPlayer[]) {
-                if ((p.state?.health ?? 0) > 0) {
-                    if (p.team === 'CT') ctAlive++;
-                    else tAlive++;
+            const players = Object.values(gsiData.allplayers) as GSIPlayer[];
+            console.log(`[GSI] allplayers 数量: ${players.length}, keys: ${Object.keys(gsiData.allplayers).join(', ')}`);
+            for (const p of players) {
+                const hp = p.state?.health ?? 0;
+                const pMoney = parseMoney(p.state?.money);
+                console.log(`[GSI]   玩家: ${p.name}, team: ${p.team}, health: ${hp}, money: $${pMoney}`);
+                if (p.team === 'CT') {
+                    ctEconomy += pMoney;
+                    if (hp > 0) ctAlive++;
+                } else {
+                    tEconomy += pMoney;
+                    if (hp > 0) tAlive++;
                 }
             }
+            console.log(`[GSI] 存活统计: CT=${ctAlive}, T=${tAlive} | 经济: CT=$${ctEconomy}, T=$${tEconomy}`);
         } else {
             if (health > 0) {
-                if (team === 'CT') ctAlive = 1;
-                else tAlive = 1;
+                if (team === 'CT') { ctAlive = 1; ctEconomy = money; }
+                else { tAlive = 1; tEconomy = money; }
             }
         }
 
@@ -175,12 +186,14 @@ app.post('/api/gsi', async (req, res) => {
             map,
             round,
             phase,
+            phaseEndsIn,
             team,
             economy: ecoTier,
             playerName,
             health,
             money,
             aliveCount: { ct: ctAlive, t: tAlive },
+            economyTotal: { ct: ctEconomy, t: tEconomy },
             score,
             bombPlanted,
             aiAdvice,

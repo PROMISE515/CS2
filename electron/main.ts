@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, screen, ipcMain } from 'electron';
+import { app, BrowserWindow, shell, screen, ipcMain, Menu } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -171,6 +171,9 @@ async function createWindow() {
     console.log(`  架构: ${process.arch}`);
     console.log(`  时间: ${new Date().toISOString()}`);
     console.log('=========================================');
+
+    // 移除默认菜单栏
+    Menu.setApplicationMenu(null);
 
     // 1. 启动 API 服务器（端口回退：3456-3460）
     console.log('\n[启动] 步骤 1/5: 启动 API 服务器...');
